@@ -1,13 +1,16 @@
 package com.kododake.aabrowser
 
+import android.Manifest
 import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
 import android.net.Uri
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -27,6 +30,7 @@ import android.widget.Toast
 import com.kododake.aabrowser.analytics.UmamiTracker
 import com.google.android.material.color.DynamicColors
 import androidx.activity.addCallback
+import androidx.core.app.ActivityCompat
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowInsetsCompat
@@ -46,6 +50,7 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.common.BitMatrix
 import android.widget.RadioGroup
+import com.kododake.aabrowser.media.WebViewMediaSessionBridge
 import com.kododake.aabrowser.settings.SettingsViews
 import org.woheller69.freeDroidWarn.R as FreeDroidWarnR
 
@@ -65,13 +70,51 @@ class MainActivity : AppCompatActivity() {
         binding.menuFab.show()
         handler.postDelayed(autoHideMenuFab, MENU_BUTTON_AUTO_HIDE_DELAY_MS)
     }
+
+    private val webStateFetcher = object : Runnable {
+        override fun run() {
+            if (isDestroyed || isFinishing) return
+            webView?.evaluateJavascript("""
+                (function(){
+                    var medias = document.querySelectorAll('video, audio');
+                    for(var i=0; i<medias.length; i++) {
+                        if(!medias[i].paused && !medias[i].muted) {
+                            var dur = isNaN(medias[i].duration) ? 0 : medias[i].duration;
+                            return medias[i].currentTime + ',' + dur + ',' + medias[i].paused;
+                        }
+                    }
+                    if(medias.length > 0) {
+                        var dur = isNaN(medias[0].duration) ? 0 : medias[0].duration;
+                        return medias[0].currentTime + ',' + dur + ',' + medias[0].paused;
+                    }
+                    return '';
+                })();
+            """.trimIndent()) { result ->
+                if (!result.isNullOrBlank() && result != "\"\"" && result != "null") {
+                    runCatching {
+                        val parts = result.replace("\"", "").split(",")
+                        if (parts.size == 3) {
+                            val current = parts[0].toDouble()
+                            val dur = parts[1].toDouble()
+                            val paused = parts[2].toBoolean()
+                            webViewMediaSessionBridge?.updatePlaybackState(current, dur, paused)
+                        }
+                    }
+                }
+            }
+            handler.postDelayed(this, 1000)
+        }
+    }
+
     private var webView: android.webkit.WebView? = null
     private var currentUrl: String = BrowserPreferences.defaultUrl()
+    private var currentPageTitle: String = ""
     private var currentUserAgentProfile: UserAgentProfile = UserAgentProfile.ANDROID_CHROME
     private var browserCallbacks: BrowserCallbacks? = null
     private var customView: View? = null
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
     private var isShowingCleartextDialog: Boolean = false
+    private var webViewMediaSessionBridge: WebViewMediaSessionBridge? = null
     private var latestReleaseUrl: String = "https://github.com/kododake/AABrowser/releases"
     private val umamiTracker: UmamiTracker by lazy { UmamiTracker(applicationContext) }
 
@@ -93,6 +136,61 @@ class MainActivity : AppCompatActivity() {
 
         setupUi()
         setupBackPressHandling()
+        webViewMediaSessionBridge = WebViewMediaSessionBridge(
+            context = this,
+            onPlayRequested = {
+                runOnUiThread {
+                    webView?.evaluateJavascript("""
+                        (function(){
+                            var medias = document.querySelectorAll('video, audio');
+                            for(var i=0; i<medias.length; i++) medias[i].play();
+                        })();
+                    """.trimIndent(), null)
+                }
+            },
+            onPauseRequested = {
+                runOnUiThread {
+                    webView?.evaluateJavascript("""
+                        (function(){
+                            var medias = document.querySelectorAll('video, audio');
+                            for(var i=0; i<medias.length; i++) medias[i].pause();
+                        })();
+                    """.trimIndent(), null)
+                }
+            },
+            onSkipForwardRequested = {
+                runOnUiThread {
+                    webView?.evaluateJavascript("""
+                        (function(){
+                            var medias = document.querySelectorAll('video, audio');
+                            for(var i=0; i<medias.length; i++) medias[i].currentTime += 10;
+                        })();
+                    """.trimIndent(), null)
+                }
+            },
+            onSkipBackwardRequested = {
+                runOnUiThread {
+                    webView?.evaluateJavascript("""
+                        (function(){
+                            var medias = document.querySelectorAll('video, audio');
+                            for(var i=0; i<medias.length; i++) medias[i].currentTime -= 10;
+                        })();
+                    """.trimIndent(), null)
+                }
+            },
+            onSeekRequested = { positionMs ->
+                runOnUiThread {
+                    webView?.evaluateJavascript("""
+                        (function(){
+                            var medias = document.querySelectorAll('video, audio');
+                            for(var i=0; i<medias.length; i++) medias[i].currentTime = ${positionMs / 1000.0};
+                        })();
+                    """.trimIndent(), null)
+                }
+            }
+        )
+        webViewMediaSessionBridge?.updateNowPlaying(currentPageTitle, currentUrl)
+        ensureNotificationPermissionIfNeeded()
         showFreeDroidWarnOnUpgradeMaterial()
     }
 
@@ -102,23 +200,38 @@ class MainActivity : AppCompatActivity() {
         extractBrowsableUrl(intent)?.let { loadUrlFromIntent(it) }
     }
 
+    override fun onStart() {
+        super.onStart()
+        webViewMediaSessionBridge?.onHostResume()
+    }
+
     override fun onResume() {
         super.onResume()
+        handler.post(webStateFetcher)
         webView?.onResume()
         refreshBookmarks()
         syncUserAgentProfile()
     }
 
     override fun onPause() {
+        handler.removeCallbacks(webStateFetcher)
         exitFullscreen()
         webView?.onPause()
         super.onPause()
     }
 
+    override fun onStop() {
+        webViewMediaSessionBridge?.onHostPause()
+        super.onStop()
+    }
+
     override fun onDestroy() {
+        handler.removeCallbacks(webStateFetcher)
         handler.removeCallbacks(autoHideMenuFab)
         handler.removeCallbacks(showMenuFabRunnable)
         exitFullscreen()
+        webViewMediaSessionBridge?.release()
+        webViewMediaSessionBridge = null
         binding.webView.releaseCompletely()
         webView = null
         super.onDestroy()
@@ -128,6 +241,12 @@ class MainActivity : AppCompatActivity() {
         val typedValue = TypedValue()
         theme.resolveAttribute(attrRes, typedValue, true)
         return typedValue.data
+    }
+
+    private fun ensureNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
+        ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_CODE_POST_NOTIFICATIONS)
     }
 
     private fun showFreeDroidWarnOnUpgradeMaterial() {
@@ -188,12 +307,18 @@ class MainActivity : AppCompatActivity() {
                         binding.addressEdit.setSelection(binding.addressEdit.text?.length ?: 0)
                     }
                     BrowserPreferences.persistUrl(this, url)
+                    webViewMediaSessionBridge?.updateNowPlaying(currentPageTitle, currentUrl)
                     updateNavigationButtons()
                     updateConnectionSecurityIcon(url)
                 }
             },
             onTitleChange = { title ->
-                runOnUiThread { binding.pageTitle.text = title.orEmpty() }
+                runOnUiThread {
+                    val resolvedTitle = title.orEmpty()
+                    currentPageTitle = resolvedTitle
+                    binding.pageTitle.text = resolvedTitle
+                    webViewMediaSessionBridge?.updateNowPlaying(currentPageTitle, currentUrl)
+                }
             },
             onProgressChange = { progress ->
                 runOnUiThread { updateProgress(progress) }
@@ -825,5 +950,6 @@ class MainActivity : AppCompatActivity() {
         private const val KEEP_ANDROID_OPEN_URL = "https://keepandroidopen.org"
         private const val FREE_DROID_WARN_SOLUTIONS_URL = "https://github.com/woheller69/FreeDroidWarn?tab=readme-ov-file#solutions"
         private const val FREE_DROID_WARN_VERSION_KEY = "versionCodeWarn"
+        private const val REQUEST_CODE_POST_NOTIFICATIONS = 1101
     }
 }

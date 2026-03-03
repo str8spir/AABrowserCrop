@@ -3,6 +3,9 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="androidx.car.app.ACCESS_SURFACE" />
     <uses-permission android:name="androidx.car.app.MAP_TEMPLATES" />
 
@@ -67,6 +70,22 @@
             <meta-data android:name="android.max_aspect" android:value="5.0" />
         </activity>
 
+        <activity
+            android:name=".ShareBookmarkActivity"
+            android:description="@string/share_bookmark_activity_description"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/share_bookmark_activity_label"
+            android:launchMode="singleTop"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
 
         <activity
             android:name=".settings.SettingsActivity"
@@ -78,6 +97,16 @@
             android:name="com.google.android.gms.oss.licenses.OssLicensesMenuActivity"
             android:exported="false"
             android:theme="@style/Theme.AABrowser" />
+
+        <service
+            android:name=".media.WebMediaSessionService"
+            android:enabled="true"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+        </service>
 
 
     </application>

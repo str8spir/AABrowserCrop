@@ -32,6 +32,9 @@
     
     <string name="bookmark_added">Saved to bookmarks</string>
     <string name="bookmark_exists">Already in bookmarks</string>
+    <string name="bookmark_share_invalid">No valid URL found in shared content</string>
+    <string name="share_bookmark_activity_label">Add to bookmarks</string>
+    <string name="share_bookmark_activity_description">Save shared links to bookmarks</string>
     <string name="bookmark_removed">Bookmark removed</string>
     <string name="bookmark_delete">Delete</string>
     <string name="bookmark_manager_title">Bookmarks</string>
@@ -83,4 +86,7 @@
     <string name="error_generic_message">An unexpected error occurred.</string>
     <string name="error_open_download">Unable to open download. Please try again on your phone.</string>
     <string name="error_open_external">Unable to open the link externally.</string>
+    <string name="media_notification_channel_name">Media playback</string>
+    <string name="media_notification_channel_description">Controls media playback in web pages</string>
+    <string name="media_notification_content_text">Playing media in WebView</string>
 </resources>

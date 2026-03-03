@@ -112,6 +112,8 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.google.oss.licenses)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.session)
     implementation("com.github.woheller69:FreeDroidWarn:V1.+")
 
     testImplementation(libs.junit)
