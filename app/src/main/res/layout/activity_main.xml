@@ -19,11 +19,12 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <WebView
-            android:id="@+id/webView"
+        <FrameLayout
+            android:id="@+id/webViewContainer"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:overScrollMode="never" />
+            android:clipChildren="false"
+            android:clipToPadding="false" />
 
         <FrameLayout
             android:id="@+id/startPageRoot"
@@ -145,9 +146,20 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:layout_marginEnd="8dp"
+                            android:layout_marginEnd="6dp"
                             android:text="@string/start_page_open_bookmarks"
                             app:icon="@drawable/kid_star_24px" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/buttonStartPageTabs"
+                            style="?attr/materialButtonTonalStyle"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="6dp"
+                            android:layout_marginEnd="6dp"
+                            android:text="@string/start_page_open_tabs"
+                            app:icon="@android:drawable/ic_menu_agenda" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/buttonStartPageResume"
@@ -155,7 +167,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:layout_marginStart="8dp"
+                            android:layout_marginStart="6dp"
                             android:text="@string/start_page_resume_last_page"
                             android:visibility="gone"
                             app:icon="@drawable/refresh_24px" />
@@ -583,7 +595,6 @@
                                         android:layout_columnWeight="1"
                                         android:layout_row="2"
                                         android:layout_column="0"
-                                        android:layout_columnSpan="3"
                                         android:layout_margin="4dp"
                                         android:text="@string/menu_start_page"
                                         android:textSize="13sp"
@@ -591,6 +602,38 @@
                                         app:iconGravity="start"
                                         app:iconSize="@dimen/icon_size_small"
                                         app:iconPadding="8dp" />
+
+                                    <com.google.android.material.button.MaterialButton
+                                        android:id="@+id/buttonTabs"
+                                        style="@style/Widget.Material3.Button.TonalButton"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_columnWeight="1"
+                                        android:layout_row="2"
+                                        android:layout_column="1"
+                                        android:layout_margin="4dp"
+                                        android:text="@string/menu_tabs"
+                                        android:textSize="13sp"
+                                        app:icon="@android:drawable/ic_menu_agenda"
+                                        app:iconGravity="top"
+                                        app:iconSize="@dimen/icon_size_small"
+                                        app:iconPadding="4dp" />
+
+                                    <com.google.android.material.button.MaterialButton
+                                        android:id="@+id/buttonNewTab"
+                                        style="@style/Widget.Material3.Button.TonalButton"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_columnWeight="1"
+                                        android:layout_row="2"
+                                        android:layout_column="2"
+                                        android:layout_margin="4dp"
+                                        android:text="@string/menu_new_tab"
+                                        android:textSize="13sp"
+                                        app:icon="@android:drawable/ic_menu_add"
+                                        app:iconGravity="top"
+                                        app:iconSize="@dimen/icon_size_small"
+                                        app:iconPadding="4dp" />
                                 </GridLayout>
                             </com.google.android.material.card.MaterialCardView>
 
@@ -835,6 +878,113 @@
 
                             <LinearLayout
                                 android:id="@+id/bookmarkManagerList"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:layout_marginTop="@dimen/menu_section_spacing" />
+
+                        </LinearLayout>
+                    </androidx.core.widget.NestedScrollView>
+
+                    <androidx.core.widget.NestedScrollView
+                        android:id="@+id/tabManagerRoot"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:maxHeight="@dimen/menu_max_height"
+                        android:fillViewport="false"
+                        android:clipToPadding="false"
+                        android:overScrollMode="ifContentScrolls"
+                        android:visibility="gone">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:paddingStart="@dimen/menu_padding_horizontal"
+                            android:paddingEnd="@dimen/menu_padding_horizontal"
+                            android:paddingBottom="@dimen/menu_padding_vertical">
+
+                            <com.google.android.material.card.MaterialCardView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                app:cardCornerRadius="@dimen/card_corner_radius"
+                                app:cardElevation="0dp"
+                                app:cardBackgroundColor="?attr/colorPrimaryContainer">
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="vertical"
+                                    android:padding="16dp">
+
+                                    <LinearLayout
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:orientation="horizontal"
+                                        android:gravity="center_vertical"
+                                        android:baselineAligned="false">
+
+                                        <LinearLayout
+                                            android:layout_width="0dp"
+                                            android:layout_height="wrap_content"
+                                            android:layout_weight="1"
+                                            android:orientation="vertical"
+                                            android:layout_marginEnd="12dp">
+
+                                            <TextView
+                                                android:id="@+id/tabManagerTitle"
+                                                android:layout_width="wrap_content"
+                                                android:layout_height="wrap_content"
+                                                android:text="@string/tab_manager_title"
+                                                android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
+                                                android:textStyle="bold"
+                                                android:textColor="?attr/colorOnPrimaryContainer" />
+
+                                            <TextView
+                                                android:id="@+id/tabManagerSubtitle"
+                                                android:layout_width="match_parent"
+                                                android:layout_height="wrap_content"
+                                                android:layout_marginTop="4dp"
+                                                android:text="@string/tab_manager_subtitle"
+                                                android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+                                                android:textColor="?attr/colorOnPrimaryContainer"
+                                                android:alpha="0.8" />
+                                        </LinearLayout>
+
+                                        <com.google.android.material.button.MaterialButton
+                                            android:id="@+id/buttonTabManagerBack"
+                                            style="@style/Widget.Material3.Button.OutlinedButton"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:text="@string/tab_manager_back"
+                                            android:textColor="?attr/colorOnPrimaryContainer"
+                                            app:strokeColor="?attr/colorOnPrimaryContainer"
+                                            app:icon="@drawable/arrow_back_24px"
+                                            app:iconTint="?attr/colorOnPrimaryContainer"
+                                            app:iconGravity="start" />
+                                    </LinearLayout>
+                                </LinearLayout>
+                            </com.google.android.material.card.MaterialCardView>
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/buttonTabManagerAdd"
+                                style="@style/Widget.Material3.Button.TonalButton"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="@dimen/menu_section_spacing"
+                                android:paddingVertical="14dp"
+                                android:text="@string/tab_manager_add"
+                                android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
+                                app:cornerRadius="@dimen/card_corner_radius"
+                                app:strokeWidth="1.5dp"
+                                app:strokeColor="?attr/colorPrimary"
+                                app:icon="@android:drawable/ic_menu_add"
+                                app:iconGravity="textStart"
+                                app:iconSize="24dp"
+                                app:iconPadding="12dp" />
+
+                            <LinearLayout
+                                android:id="@+id/tabManagerList"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:orientation="vertical"

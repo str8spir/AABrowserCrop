@@ -25,6 +25,8 @@ Transform your "parked time" with a sleek, modern browser designed specifically 
 - 🌓 **Beta Dark Pages:** Optionally ask WebView to darken supported pages while the dark theme is active.
 - 🏠 **Home Page Or Start Page:** Launch straight into a custom home page, or use the start page dashboard when no home page is set.
 - 🚀 **Six Quick Links:** The start page now supports up to six shortcut cards with default popular sites and a custom background image.
+- 🗂️ **Real Tabs + Tab Manager:** Open multiple browser tabs, switch between them from the in-app tab manager, and close tabs without losing your place.
+- ♻️ **Restore Last Tabs:** Optionally reopen the full tab session from your previous launch when no home page override is active.
 - 🔁 **Resume Last Page:** Optionally reopen the last visited page on launch when no home page is configured.
 - 🧭 **Persistent URL Bar:** Optionally keep a compact address bar visible above the page for faster browsing.
 - 🎛️ **Configurable Quick Action Button:** Choose whether the floating button opens the controls menu or jumps straight to the URL bar, keep it always visible, and move it to a corner that fits your screen.
@@ -38,6 +40,8 @@ Transform your "parked time" with a sleek, modern browser designed specifically 
 - Added a native start page with six configurable quick-link slots.
 - Added default quick links for YouTube Mobile, Google, Twitch, Kick, Wikipedia, and Weather.com.
 - Added a user-defined home page that disables the start page until cleared.
+- Added support for multiple browser tabs with an in-app tab manager.
+- Added an option to restore the full tab session on launch when no home page is set.
 - Added light theme and AMOLED dark theme support.
 - Added a beta toggle to darken supported web pages in WebView.
 - Added global display scaling presets plus custom scale input.

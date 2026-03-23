@@ -549,46 +549,74 @@ object SettingsViews {
             setPadding(0, dp(4), 0, dp(8))
         })
 
-        val startupRow = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(8), 0, 0)
-        }
-        val startupText = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-                marginEnd = dp(12)
+        val homePageSet = !BrowserPreferences.getHomePageUrl(context).isNullOrBlank()
+        fun createStartupToggleRow(
+            title: String,
+            description: String,
+            checked: Boolean,
+            onChanged: (Boolean) -> Unit
+        ): LinearLayout {
+            val row = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(8), 0, 0)
             }
-        }
-        startupText.addView(TextView(context).apply {
-            text = context.getString(R.string.settings_resume_last_page_on_launch)
-            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleSmall)
-            setTextColor(onSurfaceColor)
-        })
-        startupText.addView(TextView(context).apply {
-            val homePageSet = !BrowserPreferences.getHomePageUrl(context).isNullOrBlank()
-            text = if (homePageSet) {
-                context.getString(R.string.settings_resume_last_page_home_override)
-            } else {
-                context.getString(R.string.settings_resume_last_page_on_launch_description)
+            val textColumn = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    marginEnd = dp(12)
+                }
             }
-            setPadding(0, dp(4), 0, 0)
-            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
-            setTextColor(getColorFromAttr(com.google.android.material.R.attr.colorOnSurfaceVariant))
-        })
-        val startupSwitch = SwitchMaterial(context).apply {
-            val homePageSet = !BrowserPreferences.getHomePageUrl(context).isNullOrBlank()
-            isChecked = BrowserPreferences.shouldResumeLastPageOnLaunch(context)
-            isEnabled = !homePageSet
-            alpha = if (isEnabled) 1f else 0.6f
-            setUseMaterialThemeColors(true)
+            textColumn.addView(TextView(context).apply {
+                text = title
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleSmall)
+                setTextColor(onSurfaceColor)
+            })
+            textColumn.addView(TextView(context).apply {
+                text = description
+                setPadding(0, dp(4), 0, 0)
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
+                setTextColor(getColorFromAttr(com.google.android.material.R.attr.colorOnSurfaceVariant))
+            })
+            val switch = SwitchMaterial(context).apply {
+                isChecked = checked
+                isEnabled = !homePageSet
+                alpha = if (isEnabled) 1f else 0.6f
+                setUseMaterialThemeColors(true)
+            }
+            switch.setOnCheckedChangeListener { _, isCheckedValue ->
+                onChanged(isCheckedValue)
+            }
+            row.addView(textColumn)
+            row.addView(switch)
+            return row
         }
-        startupSwitch.setOnCheckedChangeListener { _, isChecked ->
-            BrowserPreferences.setResumeLastPageOnLaunch(context, isChecked)
-        }
-        startupRow.addView(startupText)
-        startupRow.addView(startupSwitch)
-        startupInner.addView(startupRow)
+
+        startupInner.addView(
+            createStartupToggleRow(
+                title = context.getString(R.string.settings_restore_tabs_on_launch),
+                description = if (homePageSet) {
+                    context.getString(R.string.settings_restore_tabs_home_override)
+                } else {
+                    context.getString(R.string.settings_restore_tabs_on_launch_description)
+                },
+                checked = BrowserPreferences.shouldRestoreTabsOnLaunch(context),
+                onChanged = { BrowserPreferences.setRestoreTabsOnLaunch(context, it) }
+            )
+        )
+
+        startupInner.addView(
+            createStartupToggleRow(
+                title = context.getString(R.string.settings_resume_last_page_on_launch),
+                description = if (homePageSet) {
+                    context.getString(R.string.settings_resume_last_page_home_override)
+                } else {
+                    context.getString(R.string.settings_resume_last_page_on_launch_description)
+                },
+                checked = BrowserPreferences.shouldResumeLastPageOnLaunch(context),
+                onChanged = { BrowserPreferences.setResumeLastPageOnLaunch(context, it) }
+            )
+        )
         startupCard.addView(startupInner)
         container.addView(startupCard)
 

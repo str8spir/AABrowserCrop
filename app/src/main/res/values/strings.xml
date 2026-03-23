@@ -28,6 +28,8 @@
     <string name="menu_open_address_bar">Open address bar</string>
     <string name="menu_settings">Settings</string>
     <string name="menu_settings_description">Open settings</string>
+    <string name="menu_tabs">Tabs</string>
+    <string name="menu_new_tab">New Tab</string>
     
     <string name="menu_bookmarks">Bookmarks</string>
     <string name="menu_bookmark_add">Bookmark current page</string>
@@ -86,6 +88,9 @@
     <string name="settings_home_page_inactive">Home page: start page is active</string>
     <string name="settings_startup">Startup</string>
     <string name="settings_startup_description">Control what opens automatically when the app launches normally.</string>
+    <string name="settings_restore_tabs_on_launch">Restore tabs on launch</string>
+    <string name="settings_restore_tabs_on_launch_description">When no home page is set, reopen the tabs you had open last time and return to the active one.</string>
+    <string name="settings_restore_tabs_home_override">Home page currently overrides tab restore.</string>
     <string name="settings_resume_last_page_on_launch">Resume last page on launch</string>
     <string name="settings_resume_last_page_on_launch_description">When no home page is set, open the last page you visited instead of the start page.</string>
     <string name="settings_resume_last_page_home_override">Home page currently overrides last-page resume.</string>
@@ -163,6 +168,7 @@
     <string name="start_page_card_subtitle">Pin up to six sites from the bookmarks menu.</string>
     <string name="start_page_quick_links_hint">Open the bookmarks menu to add, reorder, or swap start page sites.</string>
     <string name="start_page_open_bookmarks">Bookmarks</string>
+    <string name="start_page_open_tabs">Tabs</string>
     <string name="start_page_resume_last_page">Resume Last Page</string>
     <string name="start_page_no_last_page">No last page to resume yet.</string>
     <string name="start_page_slot_empty_title">Empty Slot</string>
@@ -181,6 +187,16 @@
     <string name="start_page_add_disabled_by_home_page">Start page editing is disabled while a home page is enabled.</string>
     <string name="bookmark_start_page_badge">Start page - %1$s</string>
     <string name="bookmark_home_page_badge">Home page</string>
+    <string name="tab_manager_title">Tabs</string>
+    <string name="tab_manager_subtitle">Switch between open tabs, open a fresh one, or close pages you no longer need.</string>
+    <string name="tab_manager_back">Back</string>
+    <string name="tab_manager_add">New tab</string>
+    <string name="tab_manager_empty">No open tabs yet.</string>
+    <string name="tab_manager_active_badge">Current tab</string>
+    <string name="tab_manager_blank_title">Start Page</string>
+    <string name="tab_manager_blank_subtitle">A fresh tab is ready.</string>
+    <string name="tab_manager_close">Close tab</string>
+    <string name="tab_manager_max_tabs">You can keep up to %1$d tabs open.</string>
     <string name="home_page_set">Home page updated</string>
     <string name="home_page_cleared">Home page cleared</string>
     <string name="home_page_unavailable">Open a website first.</string>

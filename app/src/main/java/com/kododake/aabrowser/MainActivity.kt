@@ -67,6 +67,13 @@ import com.kododake.aabrowser.settings.SettingsViews
 import org.woheller69.freeDroidWarn.R as FreeDroidWarnR
 
 class MainActivity : AppCompatActivity() {
+    private data class BrowserTab(
+        val id: Long,
+        val webView: android.webkit.WebView,
+        val speechBridge: com.kododake.aabrowser.web.SpeechRecognitionBridge,
+        var currentUrl: String = "",
+        var currentTitle: String = ""
+    )
 
     private lateinit var binding: ActivityMainBinding
     private val isDebugBuild: Boolean by lazy {
@@ -95,7 +102,9 @@ class MainActivity : AppCompatActivity() {
     private var currentUrl: String = ""
     private var currentPageTitle: String = ""
     private var currentUserAgentProfile: UserAgentProfile = UserAgentProfile.ANDROID_CHROME
-    private var browserCallbacks: BrowserCallbacks? = null
+    private val browserTabs = mutableListOf<BrowserTab>()
+    private var activeTabId: Long? = null
+    private var nextTabId: Long = 1L
     private var customView: View? = null
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
     private var isShowingCleartextDialog: Boolean = false
@@ -103,7 +112,8 @@ class MainActivity : AppCompatActivity() {
     private var latestReleaseUrl: String = "https://github.com/kododake/AABrowser/releases"
     private val umamiTracker: UmamiTracker by lazy { UmamiTracker(applicationContext) }
     private var pendingPermissionRequest: android.webkit.PermissionRequest? = null
-    private var speechBridge: com.kododake.aabrowser.web.SpeechRecognitionBridge? = null
+    private var pendingSpeechBridgeTabId: Long? = null
+    private var shouldForceSessionRestore: Boolean = false
     private var isShowingStartPage: Boolean = false
     private var isSyncingAddressFields: Boolean = false
 
@@ -118,6 +128,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         AppCompatDelegate.setDefaultNightMode(BrowserPreferences.getThemeMode(this).nightMode)
         super.onCreate(savedInstanceState)
+        shouldForceSessionRestore = savedInstanceState != null
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -148,6 +159,7 @@ class MainActivity : AppCompatActivity() {
         webView?.onResume()
         refreshHomePageMode()
         refreshBookmarks()
+        refreshTabs()
         refreshStartPage()
         syncUserAgentProfile()
         applyPersistentAddressBarPreference()
@@ -164,11 +176,22 @@ class MainActivity : AppCompatActivity() {
         handler.removeCallbacks(autoHideMenuFab)
         handler.removeCallbacks(showMenuFabRunnable)
         exitFullscreen()
-        speechBridge?.destroy()
-        speechBridge = null
-        binding.webView.releaseCompletely()
+        browserTabs.forEach { tab ->
+            tab.speechBridge.destroy()
+            tab.webView.releaseCompletely()
+        }
+        binding.webViewContainer.removeAllViews()
+        browserTabs.clear()
         webView = null
         super.onDestroy()
+    }
+
+    private val activeTab: BrowserTab?
+        get() = browserTabs.firstOrNull { it.id == activeTabId }
+
+    private fun activeTabIndex(): Int {
+        val index = browserTabs.indexOfFirst { it.id == activeTabId }
+        return if (index >= 0) index else 0
     }
 
     private fun resolveThemeColor(attrRes: Int): Int {
@@ -246,16 +269,17 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun requestSpeechRecognitionMicrophoneAccess(pageUrl: String?) {
+    private fun requestSpeechRecognitionMicrophoneAccess(tabId: Long, pageUrl: String?) {
         val pageUri = runCatching { pageUrl?.let(Uri::parse) }.getOrNull()
         val host = pageUri?.host?.lowercase()
+        pendingSpeechBridgeTabId = tabId
         if (BrowserPreferences.isHostAllowedMicrophone(this, host)) {
             continueSpeechRecognitionMicrophoneAccess()
             return
         }
 
         if (isFinishing || isDestroyed || isShowingMicrophoneDialog) {
-            speechBridge?.onPermissionResult(false)
+            browserTabs.firstOrNull { it.id == tabId }?.speechBridge?.onPermissionResult(false)
             return
         }
 
@@ -266,13 +290,18 @@ class MainActivity : AppCompatActivity() {
                 host?.let { BrowserPreferences.addAllowedMicrophoneHost(this, it) }
                 continueSpeechRecognitionMicrophoneAccess()
             },
-            onCancel = { speechBridge?.onPermissionResult(false) }
+            onCancel = {
+                browserTabs.firstOrNull { it.id == tabId }?.speechBridge?.onPermissionResult(false)
+                pendingSpeechBridgeTabId = null
+            }
         )
     }
 
     private fun continueSpeechRecognitionMicrophoneAccess() {
+        val targetTab = browserTabs.firstOrNull { it.id == pendingSpeechBridgeTabId }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-            speechBridge?.onPermissionResult(true)
+            targetTab?.speechBridge?.onPermissionResult(true)
+            pendingSpeechBridgeTabId = null
         } else {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_CODE_RECORD_AUDIO)
         }
@@ -402,9 +431,11 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            if (speechBridge?.hasPendingPermissionRequest() == true) {
-                speechBridge?.onPermissionResult(granted)
+            val speechTab = browserTabs.firstOrNull { it.id == pendingSpeechBridgeTabId }
+            if (speechTab?.speechBridge?.hasPendingPermissionRequest() == true) {
+                speechTab.speechBridge.onPermissionResult(granted)
             }
+            pendingSpeechBridgeTabId = null
         }
     }
 
@@ -448,44 +479,178 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun setupUi() {
-        val intentUrl = extractBrowsableUrl(intent)
-        val homePageUrl = BrowserPreferences.getHomePageUrl(this)
-        val lastVisitedUrl = BrowserPreferences.getLastVisitedUrl(this)
-        val resumeLastPageOnLaunch = BrowserPreferences.shouldResumeLastPageOnLaunch(this)
-        val shouldResumeLastPage = resumeLastPageOnLaunch && !lastVisitedUrl.isNullOrBlank()
-        val initialUrl = intentUrl ?: homePageUrl ?: lastVisitedUrl?.takeIf { shouldResumeLastPage } ?: BrowserPreferences.defaultUrl()
-        val launchToStartPage = intentUrl == null && homePageUrl.isNullOrBlank() && !shouldResumeLastPage
-        currentUrl = if (launchToStartPage) "" else initialUrl
-        val desktopMode = BrowserPreferences.shouldUseDesktopMode(this)
-        currentUserAgentProfile = BrowserPreferences.getUserAgentProfile(this)
+    private fun initializeTabs(
+        intentUrl: String?,
+        homePageUrl: String?,
+        lastVisitedUrl: String?,
+        restoreTabsOnLaunch: Boolean,
+        resumeLastPageOnLaunch: Boolean
+    ) {
+        val shouldRestoreSavedTabs = shouldForceSessionRestore ||
+            (intentUrl == null && homePageUrl.isNullOrBlank() && restoreTabsOnLaunch)
+        val savedTabs = if (shouldRestoreSavedTabs) {
+            BrowserPreferences.getSavedTabSession(this)
+        } else {
+            emptyList()
+        }
 
-        binding.menuFab.hide()
+        when {
+            intentUrl != null -> createBrowserTab(
+                initialUrl = BrowserPreferences.formatNavigableUrl(intentUrl),
+                activate = true
+            )
 
-        browserCallbacks = BrowserCallbacks(
+            !homePageUrl.isNullOrBlank() -> createBrowserTab(
+                initialUrl = homePageUrl,
+                activate = true
+            )
+
+            savedTabs.isNotEmpty() -> {
+                savedTabs.forEach { entry ->
+                    createBrowserTab(
+                        initialUrl = entry.url,
+                        initialTitle = entry.title.orEmpty(),
+                        activate = false
+                    )
+                }
+                val targetIndex = BrowserPreferences.getSavedActiveTabIndex(this)
+                    .coerceIn(0, browserTabs.lastIndex)
+                switchToTab(browserTabs[targetIndex].id)
+            }
+
+            resumeLastPageOnLaunch && !lastVisitedUrl.isNullOrBlank() -> createBrowserTab(
+                initialUrl = lastVisitedUrl,
+                activate = true
+            )
+
+            else -> createBrowserTab(
+                initialUrl = null,
+                initialTitle = getString(R.string.tab_manager_blank_title),
+                activate = true
+            )
+        }
+    }
+
+    private fun createBrowserTab(
+        initialUrl: String?,
+        initialTitle: String = "",
+        activate: Boolean
+    ): BrowserTab? {
+        if (browserTabs.size >= BrowserPreferences.MAX_OPEN_TABS) {
+            Toast.makeText(
+                this,
+                getString(R.string.tab_manager_max_tabs, BrowserPreferences.MAX_OPEN_TABS),
+                Toast.LENGTH_SHORT
+            ).show()
+            refreshTabs()
+            return null
+        }
+
+        val tabView = android.webkit.WebView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            overScrollMode = View.OVER_SCROLL_NEVER
+            visibility = View.GONE
+        }
+
+        lateinit var tab: BrowserTab
+        val speechBridge = com.kododake.aabrowser.web.SpeechRecognitionBridge(tabView) { pageUrl ->
+            requestSpeechRecognitionMicrophoneAccess(tab.id, pageUrl)
+        }
+        tab = BrowserTab(
+            id = nextTabId++,
+            webView = tabView,
+            speechBridge = speechBridge,
+            currentUrl = initialUrl.orEmpty(),
+            currentTitle = initialTitle
+        )
+
+        configureWebView(
+            webView = tabView,
+            callbacks = buildBrowserCallbacks(tab),
+            useDesktopMode = BrowserPreferences.shouldUseDesktopMode(this),
+            userAgentProfile = currentUserAgentProfile,
+            allowDarkPages = BrowserPreferences.isBetaForceDarkPagesEnabled(this)
+        )
+
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            WebViewCompat.addWebMessageListener(
+                tabView,
+                com.kododake.aabrowser.web.SpeechRecognitionBridge.BRIDGE_OBJECT_NAME,
+                setOf("*")
+            ) { webView, message, sourceOrigin, isMainFrame, _ ->
+                speechBridge.handleWebMessage(
+                    message = message,
+                    sourceOrigin = sourceOrigin,
+                    isMainFrame = isMainFrame,
+                    currentPageUrl = webView.url
+                )
+            }
+        }
+
+        tabView.addJavascriptInterface(object {
+            @android.webkit.JavascriptInterface
+            fun openExternal(url: String) {
+                if (url.isNullOrBlank()) return
+                runOnUiThread { runCatching { openUriExternally(Uri.parse(url)) } }
+            }
+        }, "Android")
+
+        tabView.setOnTouchListener { _, _ ->
+            showMenuButtonTemporarily()
+            false
+        }
+        tabView.onPause()
+
+        binding.webViewContainer.addView(tabView)
+        browserTabs.add(tab)
+
+        if (activate) {
+            switchToTab(tab.id)
+        } else {
+            persistTabSession()
+            refreshTabs()
+        }
+        return tab
+    }
+
+    private fun buildBrowserCallbacks(tab: BrowserTab): BrowserCallbacks {
+        return BrowserCallbacks(
             onUrlChange = { url ->
                 runOnUiThread {
+                    tab.currentUrl = url
+                    BrowserPreferences.persistUrl(this, url)
+                    prefetchSiteIcon(url)
+                    persistTabSession()
+                    if (tab.id != activeTabId) return@runOnUiThread
+
                     currentUrl = url
                     if (!isShowingStartPage && binding.addressEdit.text?.toString() != url) {
                         binding.addressEdit.setText(url)
                         binding.addressEdit.setSelection(binding.addressEdit.text?.length ?: 0)
                     }
-                    BrowserPreferences.persistUrl(this, url)
                     updateNavigationButtons()
                     if (!isShowingStartPage) {
                         updateConnectionSecurityIcon(url)
                     }
-                    prefetchSiteIcon(url)
                     refreshStartPage()
+                    refreshTabs()
                 }
             },
             onTitleChange = { title ->
                 runOnUiThread {
                     val resolvedTitle = title.orEmpty()
-                    currentPageTitle = resolvedTitle
-                    if (!isShowingStartPage) {
-                        binding.pageTitle.text = resolvedTitle
+                    tab.currentTitle = resolvedTitle
+                    persistTabSession()
+                    if (tab.id == activeTabId) {
+                        currentPageTitle = resolvedTitle
+                        if (!isShowingStartPage) {
+                            binding.pageTitle.text = resolvedTitle.ifBlank { displayTitleForTab(tab) }
+                        }
                     }
+                    refreshTabs()
                 }
             },
             onFaviconReceived = { url, icon ->
@@ -497,27 +662,21 @@ class MainActivity : AppCompatActivity() {
                 }
             },
             onProgressChange = { progress ->
-                runOnUiThread { updateProgress(progress) }
+                if (tab.id == activeTabId) {
+                    runOnUiThread { updateProgress(progress) }
+                }
             },
             onShowDownloadPrompt = { uri ->
                 runOnUiThread { openUriExternally(uri) }
             },
-            onCleartextNavigationRequested = { uri, allowOnce, allowhostPermanently, cancel ->
+            onCleartextNavigationRequested = { uri, allowOnce, allowHostPermanently, cancel ->
                 runOnUiThread {
-                    val host = uri.host ?: uri.toString()
-                    showSitePermissionDialog(
-                        title = getString(R.string.cleartext_connection_title),
-                        message = getString(R.string.cleartext_connection_message, host),
-                        isMicrophoneDialog = false,
-                        onAllowOnce = allowOnce,
-                        onAllowHost = allowhostPermanently,
-                        onCancel = cancel
-                    )
+                    showCleartextNavigationDialog(uri, allowOnce, allowHostPermanently, cancel)
                 }
             },
             onError = { _, description ->
                 runOnUiThread {
-                    if (isDebugBuild) {
+                    if (isDebugBuild && tab.id == activeTabId) {
                         val message = description ?: getString(R.string.error_generic_message)
                         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
                     }
@@ -533,70 +692,267 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread { handleWebPermissionRequest(request) }
             }
         )
+    }
 
-        webView = binding.webView
-        webView?.let { view ->
-            configureWebView(
-                webView = view,
-                callbacks = browserCallbacks ?: BrowserCallbacks(),
-                useDesktopMode = desktopMode,
-                userAgentProfile = currentUserAgentProfile,
-                allowDarkPages = BrowserPreferences.isBetaForceDarkPagesEnabled(this)
-            )
+    private fun showCleartextNavigationDialog(
+        uri: Uri,
+        onAllowOnce: () -> Unit,
+        onAllowHost: () -> Unit,
+        onCancel: () -> Unit
+    ) {
+        val host = uri.host ?: uri.toString()
+        showSitePermissionDialog(
+            title = getString(R.string.cleartext_connection_title),
+            message = getString(R.string.cleartext_connection_message, host),
+            isMicrophoneDialog = false,
+            onAllowOnce = onAllowOnce,
+            onAllowHost = onAllowHost,
+            onCancel = onCancel
+        )
+    }
 
-            speechBridge = com.kododake.aabrowser.web.SpeechRecognitionBridge(view) { pageUrl ->
-                requestSpeechRecognitionMicrophoneAccess(pageUrl)
-            }
-            if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
-                WebViewCompat.addWebMessageListener(
-                    view,
-                    com.kododake.aabrowser.web.SpeechRecognitionBridge.BRIDGE_OBJECT_NAME,
-                    setOf("*")
-                ) { webView, message, sourceOrigin, isMainFrame, _ ->
-                    speechBridge?.handleWebMessage(
-                        message = message,
-                        sourceOrigin = sourceOrigin,
-                        isMainFrame = isMainFrame,
-                        currentPageUrl = webView.url
-                    )
-                }
-            }
+    private fun createNewTab(activate: Boolean): BrowserTab? {
+        val initialUrl = BrowserPreferences.getHomePageUrl(this)
+        return createBrowserTab(
+            initialUrl = initialUrl,
+            initialTitle = if (initialUrl.isNullOrBlank()) {
+                getString(R.string.tab_manager_blank_title)
+            } else {
+                ""
+            },
+            activate = activate
+        )
+    }
 
-            view.addJavascriptInterface(object {
-                @android.webkit.JavascriptInterface
-                fun openExternal(url: String) {
-                    if (url.isNullOrBlank()) return
-                    runOnUiThread { runCatching { openUriExternally(Uri.parse(url)) } }
-                }
-            }, "Android")
-
-            view.setOnTouchListener { _, _ ->
-                showMenuButtonTemporarily()
-                false
-            }
-            if (!launchToStartPage) {
-                view.loadUrl(initialUrl)
-            }
+    private fun switchToTab(tabId: Long) {
+        val selectedTab = browserTabs.firstOrNull { it.id == tabId } ?: return
+        if (webView !== selectedTab.webView) {
+            webView?.onPause()
         }
 
-        if (launchToStartPage) {
+        activeTabId = selectedTab.id
+        webView = selectedTab.webView
+
+        browserTabs.forEach { tab ->
+            tab.webView.visibility = if (tab.id == selectedTab.id) View.VISIBLE else View.GONE
+        }
+        selectedTab.webView.onResume()
+
+        currentUrl = selectedTab.currentUrl
+        currentPageTitle = selectedTab.currentTitle
+
+        if (selectedTab.currentUrl.isBlank()) {
             showStartPage()
         } else {
-            updateConnectionSecurityIcon(initialUrl)
-            if (binding.addressEdit.text?.toString() != initialUrl) {
-                binding.addressEdit.setText(initialUrl)
-                binding.addressEdit.setSelection(binding.addressEdit.text?.length ?: 0)
+            hideStartPage()
+            if (selectedTab.webView.url.isNullOrBlank()) {
+                selectedTab.webView.loadUrl(selectedTab.currentUrl)
+            } else {
+                binding.pageTitle.text = selectedTab.currentTitle.ifBlank { displayTitleForTab(selectedTab) }
+                updateConnectionSecurityIcon(selectedTab.currentUrl)
             }
         }
 
-        if (intentUrl != null) {
-            BrowserPreferences.persistUrl(this, initialUrl)
+        persistTabSession()
+        refreshTabs()
+        updateNavigationButtons()
+        applyPersistentAddressBarPreference()
+    }
+
+    private fun closeTab(tabId: Long) {
+        val tabIndex = browserTabs.indexOfFirst { it.id == tabId }
+        if (tabIndex < 0) return
+
+        val removedTab = browserTabs.removeAt(tabIndex)
+        if (pendingSpeechBridgeTabId == removedTab.id) {
+            pendingSpeechBridgeTabId = null
+        }
+        removedTab.speechBridge.destroy()
+        binding.webViewContainer.removeView(removedTab.webView)
+        removedTab.webView.releaseCompletely()
+
+        if (browserTabs.isEmpty()) {
+            createNewTab(activate = true)
+            return
         }
 
-        binding.desktopSwitch.isChecked = desktopMode
+        if (activeTabId == removedTab.id) {
+            val nextIndex = tabIndex.coerceAtMost(browserTabs.lastIndex)
+            switchToTab(browserTabs[nextIndex].id)
+        } else {
+            persistTabSession()
+            refreshTabs()
+        }
+    }
+
+    private fun persistTabSession() {
+        BrowserPreferences.persistTabSession(
+            context = this,
+            tabs = browserTabs.map { tab ->
+                BrowserPreferences.TabSessionEntry(
+                    url = tab.currentUrl.takeIf { it.isNotBlank() },
+                    title = tab.currentTitle.takeIf { it.isNotBlank() }
+                )
+            },
+            activeIndex = activeTabIndex()
+        )
+    }
+
+    private fun refreshTabs() {
+        val tabCount = browserTabs.size.coerceAtLeast(1)
+        val tabsLabel = if (tabCount > 1) {
+            "${getString(R.string.menu_tabs)} ($tabCount)"
+        } else {
+            getString(R.string.menu_tabs)
+        }
+        binding.buttonTabs.text = tabsLabel
+        binding.buttonStartPageTabs.text = tabsLabel
+
+        val canAddMoreTabs = browserTabs.size < BrowserPreferences.MAX_OPEN_TABS
+        binding.buttonNewTab.isEnabled = canAddMoreTabs
+        binding.buttonNewTab.alpha = if (canAddMoreTabs) 1f else 0.6f
+        binding.buttonTabManagerAdd.isEnabled = canAddMoreTabs
+        binding.buttonTabManagerAdd.alpha = if (canAddMoreTabs) 1f else 0.6f
+
+        refreshTabManager()
+    }
+
+    private fun refreshTabManager() {
+        val container = binding.tabManagerList
+        val density = resources.displayMetrics.density
+        container.removeAllViews()
+
+        if (browserTabs.isEmpty()) {
+            container.addView(MaterialTextView(this).apply {
+                text = getString(R.string.tab_manager_empty)
+                setPadding((16 * density).toInt(), (24 * density).toInt(), (16 * density).toInt(), (24 * density).toInt())
+                gravity = android.view.Gravity.CENTER
+                setTextColor(resolveThemeColor(com.google.android.material.R.attr.colorOnSurfaceVariant))
+            })
+            return
+        }
+
+        browserTabs.forEach { tab ->
+            val isActive = tab.id == activeTabId
+            val card = com.google.android.material.card.MaterialCardView(this).apply {
+                radius = 12 * density
+                setCardBackgroundColor(
+                    resolveThemeColor(
+                        if (isActive) {
+                            com.google.android.material.R.attr.colorPrimaryContainer
+                        } else {
+                            com.google.android.material.R.attr.colorSurfaceContainer
+                        }
+                    )
+                )
+                strokeWidth = (1 * density).toInt()
+                strokeColor = resolveThemeColor(com.google.android.material.R.attr.colorOutlineVariant)
+                setOnClickListener {
+                    switchToTab(tab.id)
+                    hideMenuOverlay()
+                }
+            }
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding((12 * density).toInt(), (12 * density).toInt(), (8 * density).toInt(), (12 * density).toInt())
+            }
+            val textContainer = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    marginEnd = (8 * density).toInt()
+                }
+            }
+            if (isActive) {
+                textContainer.addView(MaterialTextView(this).apply {
+                    text = getString(R.string.tab_manager_active_badge)
+                    setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_LabelMedium)
+                    setTextColor(resolveThemeColor(androidx.appcompat.R.attr.colorPrimary))
+                })
+            }
+            textContainer.addView(MaterialTextView(this).apply {
+                text = displayTitleForTab(tab)
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyLarge)
+            })
+            textContainer.addView(MaterialTextView(this).apply {
+                text = if (tab.currentUrl.isBlank()) {
+                    getString(R.string.tab_manager_blank_subtitle)
+                } else {
+                    tab.currentUrl
+                }
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+                setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
+                alpha = 0.7f
+            })
+
+            val closeButton = MaterialButton(
+                ContextThemeWrapper(this, com.google.android.material.R.style.Widget_Material3_Button_IconButton_Filled_Tonal)
+            ).apply {
+                layoutParams = LinearLayout.LayoutParams((40 * density).toInt(), (40 * density).toInt())
+                setIconResource(R.drawable.ic_close)
+                iconPadding = 0
+                iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START
+                contentDescription = getString(R.string.tab_manager_close)
+                setOnClickListener { closeTab(tab.id) }
+            }
+
+            row.addView(textContainer)
+            row.addView(closeButton)
+            card.addView(row)
+
+            container.addView(card, LinearLayout.LayoutParams(-1, -2).apply {
+                topMargin = (8 * density).toInt()
+            })
+        }
+    }
+
+    private fun displayTitleForTab(tab: BrowserTab): String {
+        return when {
+            tab.currentTitle.isNotBlank() -> tab.currentTitle
+            tab.currentUrl.isNotBlank() -> displayTitleForUrl(tab.currentUrl)
+            else -> getString(R.string.tab_manager_blank_title)
+        }
+    }
+
+    private fun showTabManager() {
+        binding.menuScroll.visibility = View.GONE
+        binding.bookmarkManagerRoot.visibility = View.GONE
+        binding.qrCodeViewRoot.visibility = View.GONE
+        binding.checkLatestViewRoot.visibility = View.GONE
+        binding.settingsViewRoot.visibility = View.GONE
+        binding.tabManagerRoot.visibility = View.VISIBLE
+        refreshTabs()
+    }
+
+    private fun hideTabManager() {
+        binding.tabManagerRoot.visibility = View.GONE
+        binding.menuScroll.visibility = View.VISIBLE
+    }
+
+    private fun setupUi() {
+        val intentUrl = extractBrowsableUrl(intent)
+        val homePageUrl = BrowserPreferences.getHomePageUrl(this)
+        val lastVisitedUrl = BrowserPreferences.getLastVisitedUrl(this)
+        val restoreTabsOnLaunch = BrowserPreferences.shouldRestoreTabsOnLaunch(this)
+        val resumeLastPageOnLaunch = BrowserPreferences.shouldResumeLastPageOnLaunch(this)
+        currentUserAgentProfile = BrowserPreferences.getUserAgentProfile(this)
+
+        binding.menuFab.hide()
+        initializeTabs(
+            intentUrl = intentUrl,
+            homePageUrl = homePageUrl,
+            lastVisitedUrl = lastVisitedUrl,
+            restoreTabsOnLaunch = restoreTabsOnLaunch,
+            resumeLastPageOnLaunch = resumeLastPageOnLaunch
+        )
+
+        binding.desktopSwitch.isChecked = BrowserPreferences.shouldUseDesktopMode(this)
         binding.desktopSwitch.setOnCheckedChangeListener { _, isChecked ->
             BrowserPreferences.setDesktopMode(this, isChecked)
-            webView?.updateDesktopMode(isChecked, currentUserAgentProfile)
+            browserTabs.forEach { it.webView.updateDesktopMode(isChecked, currentUserAgentProfile) }
         }
 
         configureAddressField(
@@ -636,7 +992,8 @@ class MainActivity : AppCompatActivity() {
 
         val navButtons = listOf(
             binding.buttonBack, binding.buttonReload, binding.buttonForward,
-            binding.buttonBookmarks, binding.buttonSettings, binding.buttonExternalGithub
+            binding.buttonBookmarks, binding.buttonSettings, binding.buttonTabs,
+            binding.buttonNewTab, binding.buttonExternalGithub
         )
 
         navButtons.forEach { btn ->
@@ -649,11 +1006,21 @@ class MainActivity : AppCompatActivity() {
         binding.buttonExternalGithub.iconTint = primaryColorStateList
         binding.buttonExternalGithub.setOnClickListener { openUriExternally(Uri.parse(GITHUB_REPO_URL)) }
         binding.buttonBookmarks.setOnClickListener { showBookmarkManager() }
+        binding.buttonTabs.setOnClickListener { showTabManager() }
+        binding.buttonNewTab.setOnClickListener {
+            createNewTab(activate = true)
+            hideMenuOverlay()
+        }
         binding.buttonStartPage.setOnClickListener {
             showStartPage()
             hideMenuOverlay()
         }
         binding.buttonBookmarkManagerBack.setOnClickListener { hideBookmarkManager() }
+        binding.buttonTabManagerBack.setOnClickListener { hideTabManager() }
+        binding.buttonTabManagerAdd.setOnClickListener {
+            createNewTab(activate = true)
+            hideMenuOverlay()
+        }
         binding.buttonBookmarkAdd.setOnClickListener { addBookmarkForCurrentPage() }
         binding.buttonBookmarkStartPageAdd.setOnClickListener { addCurrentPageToStartPage() }
         binding.buttonBookmarkSetHomePage.setOnClickListener { setCurrentPageAsHomePage() }
@@ -678,6 +1045,10 @@ class MainActivity : AppCompatActivity() {
             showMenuOverlay()
             showBookmarkManager()
         }
+        binding.buttonStartPageTabs.setOnClickListener {
+            showMenuOverlay()
+            showTabManager()
+        }
         binding.buttonStartPageResume.setOnClickListener {
             val resumeUrl = BrowserPreferences.getLastVisitedUrl(this)
             if (resumeUrl.isNullOrBlank()) {
@@ -695,6 +1066,7 @@ class MainActivity : AppCompatActivity() {
         setupManualDragLogic()
 
         updateNavigationButtons()
+        refreshTabs()
         refreshStartPage()
         showMenuButtonTemporarily()
         refreshBookmarks()
@@ -796,7 +1168,9 @@ class MainActivity : AppCompatActivity() {
         binding.persistentAddressBarCard.isVisible = shouldShow
 
         val extraTopPadding = if (shouldShow) persistentAddressBarHeightPx() else 0
-        binding.webView.setPadding(0, extraTopPadding, 0, 0)
+        browserTabs.forEach { tab ->
+            tab.webView.setPadding(0, extraTopPadding, 0, 0)
+        }
 
         val startPagePadding = (24 * resources.displayMetrics.density).toInt()
         binding.startPageScroll.updatePadding(
@@ -916,6 +1290,7 @@ class MainActivity : AppCompatActivity() {
                 isInFullscreen() -> exitFullscreen()
                 binding.checkLatestViewRoot.isVisible -> hideCheckLatestView()
                 binding.qrCodeViewRoot.isVisible -> hideQrCodeView()
+                binding.tabManagerRoot.isVisible -> hideTabManager()
                 binding.bookmarkManagerRoot.isVisible -> hideBookmarkManager()
                 binding.settingsViewRoot.isVisible -> hideSettingsView()
                 binding.menuOverlay.isVisible -> hideMenuOverlay()
@@ -934,87 +1309,85 @@ class MainActivity : AppCompatActivity() {
         val latestProfile = BrowserPreferences.getUserAgentProfile(this)
         if (latestProfile == currentUserAgentProfile) return
         currentUserAgentProfile = latestProfile
-        webView?.updateUserAgentProfile(latestProfile, BrowserPreferences.shouldUseDesktopMode(this))
+        browserTabs.forEach { tab ->
+            tab.webView.updateUserAgentProfile(latestProfile, BrowserPreferences.shouldUseDesktopMode(this))
+        }
+    }
+
+    private fun ensureActiveTab(): BrowserTab {
+        return activeTab ?: createNewTab(activate = true)
+            ?: error("Unable to create a browser tab")
+    }
+
+    private fun navigateActiveTabTo(navigable: String, closeMenuAfterNavigate: Boolean) {
+        val targetTab = ensureActiveTab()
+        val targetWebView = targetTab.webView
+        val uri = runCatching { Uri.parse(navigable) }.getOrNull() ?: return
+
+        fun finishNavigation(loadAction: () -> Unit) {
+            targetTab.currentUrl = navigable
+            targetTab.currentTitle = ""
+            if (targetTab.id == activeTabId) {
+                currentUrl = navigable
+                currentPageTitle = ""
+                if (binding.addressEdit.text?.toString() != navigable) {
+                    binding.addressEdit.setText(navigable)
+                    binding.addressEdit.setSelection(binding.addressEdit.text?.length ?: 0)
+                }
+            }
+            BrowserPreferences.persistUrl(this, navigable)
+            persistTabSession()
+            hideStartPage()
+            loadAction()
+            if (closeMenuAfterNavigate && binding.menuOverlay.isVisible) {
+                hideMenuOverlay()
+            } else {
+                hideKeyboard(binding.persistentAddressEdit)
+                binding.persistentAddressEdit.clearFocus()
+            }
+        }
+
+        if (uri.scheme?.lowercase() == "http") {
+            val host = uri.host?.lowercase()
+            if (!BrowserPreferences.isHostAllowedCleartext(this, host)) {
+                showCleartextNavigationDialog(
+                    uri = uri,
+                    onAllowOnce = {
+                        finishNavigation {
+                            targetWebView.setTag(R.id.webview_allow_once_uri_tag, navigable)
+                            targetWebView.post { targetWebView.loadUrl(navigable) }
+                        }
+                    },
+                    onAllowHost = {
+                        host?.let { BrowserPreferences.addAllowedCleartextHost(this, it) }
+                        finishNavigation {
+                            targetWebView.setTag(R.id.webview_allow_once_uri_tag, navigable)
+                            targetWebView.post { targetWebView.loadUrl(navigable) }
+                        }
+                    },
+                    onCancel = {
+                        if (closeMenuAfterNavigate && binding.menuOverlay.isVisible) {
+                            hideMenuOverlay()
+                        }
+                    }
+                )
+                return
+            }
+        }
+
+        finishNavigation { targetWebView.loadUrl(navigable) }
     }
 
     private fun navigateToAddress(raw: String, closeMenuAfterNavigate: Boolean) {
         val navigable = BrowserPreferences.formatNavigableUrl(raw)
         if (navigable.isEmpty()) return
-        val uri = runCatching { Uri.parse(navigable) }.getOrNull() ?: return
-        if (uri.scheme?.lowercase() == "http") {
-            val host = uri.host?.lowercase()
-            if (!BrowserPreferences.isHostAllowedCleartext(this, host)) {
-                val allowOnce = {
-                    hideStartPage()
-                    webView?.setTag(R.id.webview_allow_once_uri_tag, navigable)
-                    webView?.post { webView?.loadUrl(navigable) }
-                    kotlin.Unit
-                }
-                val allowHost = {
-                    host?.let { BrowserPreferences.addAllowedCleartextHost(this, it) }
-                    hideStartPage()
-                    webView?.setTag(R.id.webview_allow_once_uri_tag, navigable)
-                    webView?.post { webView?.loadUrl(navigable) }
-                    kotlin.Unit
-                }
-                val cancel = { kotlin.Unit }
-                browserCallbacks?.onCleartextNavigationRequested(uri, allowOnce, allowHost, cancel)
-                if (closeMenuAfterNavigate && binding.menuOverlay.isVisible) {
-                    hideMenuOverlay()
-                }
-                return
-            }
-        }
-
-        currentUrl = navigable
-        BrowserPreferences.persistUrl(this, navigable)
-        hideStartPage()
-        webView?.loadUrl(navigable)
-        if (closeMenuAfterNavigate && binding.menuOverlay.isVisible) {
-            hideMenuOverlay()
-        } else {
-            hideKeyboard(binding.persistentAddressEdit)
-            binding.persistentAddressEdit.clearFocus()
-        }
+        navigateActiveTabTo(navigable, closeMenuAfterNavigate)
     }
 
     private fun loadUrlFromIntent(rawUrl: String) {
         val navigable = BrowserPreferences.formatNavigableUrl(rawUrl.trim())
         if (navigable.isEmpty()) return
-        val uri = runCatching { Uri.parse(navigable) }.getOrNull() ?: return
-        if (uri.scheme?.lowercase() == "http") {
-            val host = uri.host?.lowercase()
-            if (!BrowserPreferences.isHostAllowedCleartext(this, host)) {
-                val allowOnce = {
-                    hideStartPage()
-                    webView?.setTag(R.id.webview_allow_once_uri_tag, navigable)
-                    webView?.post { webView?.loadUrl(navigable) }
-                    kotlin.Unit
-                }
-                val allowHost = {
-                    host?.let { BrowserPreferences.addAllowedCleartextHost(this, it) }
-                    hideStartPage()
-                    webView?.setTag(R.id.webview_allow_once_uri_tag, navigable)
-                    webView?.post { webView?.loadUrl(navigable) }
-                    kotlin.Unit
-                }
-                val cancel = {
-                    webView?.stopLoading()
-                    kotlin.Unit
-                }
-                browserCallbacks?.onCleartextNavigationRequested(uri, allowOnce, allowHost, cancel)
-                binding.addressEdit.setText(navigable)
-                hideMenuOverlay()
-                return
-            }
-        }
-
-        currentUrl = navigable
-        BrowserPreferences.persistUrl(this, navigable)
-        hideStartPage()
-        binding.addressEdit.setText(navigable)
-        webView?.loadUrl(navigable)
-        hideMenuOverlay()
+        navigateActiveTabTo(navigable, closeMenuAfterNavigate = true)
     }
 
     private fun updateNavigationButtons() {
@@ -1068,6 +1441,7 @@ class MainActivity : AppCompatActivity() {
         handler.removeCallbacks(autoHideMenuFab)
         binding.menuFab.hide()
         refreshBookmarks()
+        refreshTabs()
         refreshStartPage()
     }
 
@@ -1080,6 +1454,7 @@ class MainActivity : AppCompatActivity() {
             .withEndAction {
                 binding.menuOverlay.visibility = View.GONE
                 hideBookmarkManager()
+                hideTabManager()
                 hideCheckLatestView()
                 hideQrCodeView()
                 hideSettingsView()
@@ -1133,7 +1508,7 @@ class MainActivity : AppCompatActivity() {
         if (binding.menuOverlay.isVisible) hideMenuOverlay()
         binding.menuFab.hide()
         binding.persistentAddressBarCard.visibility = View.GONE
-        binding.webView.visibility = View.INVISIBLE
+        webView?.visibility = View.INVISIBLE
         binding.fullscreenContainer.apply {
             visibility = View.VISIBLE
             removeAllViews()
@@ -1147,7 +1522,7 @@ class MainActivity : AppCompatActivity() {
     private fun exitFullscreen(fromWebChrome: Boolean = false) {
         if (customView == null) return
         binding.fullscreenContainer.apply { removeAllViews(); visibility = View.GONE }
-        binding.webView.visibility = View.VISIBLE
+        webView?.visibility = if (isShowingStartPage) View.INVISIBLE else View.VISIBLE
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         WindowInsetsControllerCompat(window, binding.root).show(WindowInsetsCompat.Type.systemBars())
         val callback = customViewCallback
@@ -1477,6 +1852,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun showBookmarkManager() {
         binding.menuScroll.visibility = View.GONE
+        binding.tabManagerRoot.visibility = View.GONE
+        binding.qrCodeViewRoot.visibility = View.GONE
+        binding.checkLatestViewRoot.visibility = View.GONE
+        binding.settingsViewRoot.visibility = View.GONE
         binding.bookmarkManagerRoot.visibility = View.VISIBLE
         refreshBookmarks()
     }
@@ -1496,7 +1875,7 @@ class MainActivity : AppCompatActivity() {
         if (isInFullscreen()) exitFullscreen()
         isShowingStartPage = true
         binding.startPageRoot.visibility = View.VISIBLE
-        binding.webView.visibility = View.INVISIBLE
+        webView?.visibility = View.INVISIBLE
         binding.pageTitle.text = getString(R.string.start_page_title)
         binding.addressEdit.setText("")
         updateConnectionSecurityIcon(null)
@@ -1509,7 +1888,7 @@ class MainActivity : AppCompatActivity() {
         if (!isShowingStartPage && binding.startPageRoot.visibility != View.VISIBLE) return
         isShowingStartPage = false
         binding.startPageRoot.visibility = View.GONE
-        binding.webView.visibility = View.VISIBLE
+        webView?.visibility = View.VISIBLE
         binding.pageTitle.text = currentPageTitle.ifBlank {
             currentUrl.takeIf { it.isNotBlank() }?.let(::displayLabelForUrl).orEmpty()
         }
@@ -1761,6 +2140,10 @@ class MainActivity : AppCompatActivity() {
         val url = currentUrl.trim()
         if (url.isEmpty()) return
         binding.menuScroll.visibility = View.GONE
+        binding.bookmarkManagerRoot.visibility = View.GONE
+        binding.tabManagerRoot.visibility = View.GONE
+        binding.checkLatestViewRoot.visibility = View.GONE
+        binding.settingsViewRoot.visibility = View.GONE
         binding.qrCodeViewRoot.visibility = View.VISIBLE
         generateQrCode(url)?.let {
             binding.qrCodeImage.setImageBitmap(it)
@@ -1775,6 +2158,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun showSettingsView() {
         binding.menuScroll.visibility = View.GONE
+        binding.bookmarkManagerRoot.visibility = View.GONE
+        binding.tabManagerRoot.visibility = View.GONE
+        binding.qrCodeViewRoot.visibility = View.GONE
+        binding.checkLatestViewRoot.visibility = View.GONE
         binding.settingsViewRoot.visibility = View.VISIBLE
         ensureSettingsContentPopulated()
     }
@@ -1789,7 +2176,9 @@ class MainActivity : AppCompatActivity() {
                     onClose = { hideSettingsView() },
                     onThemeChanged = { recreate() },
                     onPageDarkeningChanged = {
-                        webView?.updatePageDarkening(BrowserPreferences.isBetaForceDarkPagesEnabled(this))
+                        browserTabs.forEach { tab ->
+                            tab.webView.updatePageDarkening(BrowserPreferences.isBetaForceDarkPagesEnabled(this))
+                        }
                     },
                     onScaleChanged = { recreate() },
                     onHomePageChanged = { handleHomePagePreferenceChanged() },
@@ -1814,6 +2203,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun showCheckLatestView() {
         binding.menuScroll.visibility = View.GONE
+        binding.bookmarkManagerRoot.visibility = View.GONE
+        binding.tabManagerRoot.visibility = View.GONE
+        binding.qrCodeViewRoot.visibility = View.GONE
+        binding.settingsViewRoot.visibility = View.GONE
         binding.checkLatestViewRoot.visibility = View.VISIBLE
         binding.checkLatestProgressIndicator.visibility = View.VISIBLE
         try {

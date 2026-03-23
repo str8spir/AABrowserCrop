@@ -6,6 +6,8 @@
 - Added default quick links for `m.youtube.com`, Google, Twitch, Kick, Wikipedia, and Weather.com.
 - Added bookmark-menu controls to pin the current page to the start page.
 - Added a custom home page preference that disables the start page while active.
+- Added support for multiple browser tabs with an in-app tab manager.
+- Added a startup preference to restore the previous tab session when no home page is set.
 - Added light theme and AMOLED dark theme options for the app UI.
 - Added a beta toggle to darken supported web pages through WebView algorithmic darkening.
 - Added global display scale presets and a custom scale percentage input.

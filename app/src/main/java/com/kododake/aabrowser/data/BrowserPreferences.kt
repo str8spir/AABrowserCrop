@@ -11,8 +11,14 @@ import com.kododake.aabrowser.model.QuickActionButtonPosition
 import com.kododake.aabrowser.model.UserAgentProfile
 import kotlin.math.roundToInt
 import org.json.JSONArray
+import org.json.JSONObject
 
 object BrowserPreferences {
+    data class TabSessionEntry(
+        val url: String?,
+        val title: String?
+    )
+
     private const val PREFS_NAME = "browser_prefs"
     private const val KEY_LAST_URL = "last_url"
     private const val KEY_DESKTOP_MODE = "desktop_mode"
@@ -24,10 +30,13 @@ object BrowserPreferences {
     private const val KEY_THEME_MODE = "theme_mode"
     private const val KEY_BETA_FORCE_DARK_PAGES = "beta_force_dark_pages"
     private const val KEY_RESUME_LAST_PAGE_ON_LAUNCH = "resume_last_page_on_launch"
+    private const val KEY_RESTORE_TABS_ON_LAUNCH = "restore_tabs_on_launch"
     private const val KEY_ALWAYS_SHOW_URL_BAR = "always_show_url_bar"
     private const val KEY_QUICK_ACTION_BUTTON_MODE = "quick_action_button_mode"
     private const val KEY_QUICK_ACTION_BUTTON_ALWAYS_VISIBLE = "quick_action_button_always_visible"
     private const val KEY_QUICK_ACTION_BUTTON_POSITION = "quick_action_button_position"
+    private const val KEY_TAB_SESSION = "tab_session"
+    private const val KEY_ACTIVE_TAB_INDEX = "active_tab_index"
     private const val KEY_START_PAGE_SLOTS = "start_page_slots"
     private const val KEY_START_PAGE_BACKGROUND_URI = "start_page_background_uri"
     private const val KEY_HOME_PAGE_URL = "home_page_url"
@@ -44,6 +53,7 @@ object BrowserPreferences {
     )
 
     const val MAX_START_PAGE_SITES = 6
+    const val MAX_OPEN_TABS = 8
     const val MIN_GLOBAL_SCALE_PERCENT = 60
     const val MAX_GLOBAL_SCALE_PERCENT = 200
     const val DEFAULT_GLOBAL_SCALE_PERCENT = 100
@@ -200,6 +210,95 @@ object BrowserPreferences {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putBoolean(KEY_RESUME_LAST_PAGE_ON_LAUNCH, enabled)
+            .apply()
+    }
+
+    fun shouldRestoreTabsOnLaunch(context: Context): Boolean {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_RESTORE_TABS_ON_LAUNCH, false)
+    }
+
+    fun setRestoreTabsOnLaunch(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_RESTORE_TABS_ON_LAUNCH, enabled)
+            .apply()
+    }
+
+    fun getSavedTabSession(context: Context): List<TabSessionEntry> {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val serialized = prefs.getString(KEY_TAB_SESSION, null) ?: return emptyList()
+        return runCatching {
+            val array = JSONArray(serialized)
+            buildList(array.length()) {
+                for (index in 0 until array.length()) {
+                    val entry = array.optJSONObject(index) ?: continue
+                    val rawUrl = entry.optString("url").trim()
+                    val normalizedUrl = rawUrl.takeIf { it.isEmpty() || isHttpOrHttps(it) }
+                    val title = entry.optString("title").trim().takeIf { it.isNotEmpty() }
+                    if (normalizedUrl != null) {
+                        add(TabSessionEntry(url = normalizedUrl.ifEmpty { null }, title = title))
+                    }
+                }
+            }.take(MAX_OPEN_TABS)
+        }.getOrDefault(emptyList())
+    }
+
+    fun getSavedActiveTabIndex(context: Context): Int {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt(KEY_ACTIVE_TAB_INDEX, 0)
+            .coerceAtLeast(0)
+    }
+
+    fun persistTabSession(
+        context: Context,
+        tabs: List<TabSessionEntry>,
+        activeIndex: Int
+    ) {
+        val normalizedTabs = buildList {
+            tabs.take(MAX_OPEN_TABS).forEach { tab ->
+                val normalizedUrl = tab.url
+                    ?.trim()
+                    ?.takeIf { isHttpOrHttps(it) }
+                if (normalizedUrl != null || tab.url.isNullOrBlank()) {
+                    add(
+                        TabSessionEntry(
+                            url = normalizedUrl,
+                            title = tab.title?.trim()?.takeIf { it.isNotEmpty() }
+                        )
+                    )
+                }
+            }
+        }
+
+        val array = JSONArray()
+        normalizedTabs.forEach { tab ->
+            array.put(
+                JSONObject().apply {
+                    put("url", tab.url.orEmpty())
+                    put("title", tab.title.orEmpty())
+                }
+            )
+        }
+
+        val normalizedActiveIndex = if (normalizedTabs.isEmpty()) {
+            0
+        } else {
+            activeIndex.coerceIn(0, normalizedTabs.lastIndex)
+        }
+
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_TAB_SESSION, array.toString())
+            .putInt(KEY_ACTIVE_TAB_INDEX, normalizedActiveIndex)
+            .apply()
+    }
+
+    fun clearSavedTabSession(context: Context) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .remove(KEY_TAB_SESSION)
+            .remove(KEY_ACTIVE_TAB_INDEX)
             .apply()
     }
 
