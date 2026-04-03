@@ -220,6 +220,19 @@ fun configureWebView(
             override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                 if (view != null && callback != null) {
                     callbacks.onEnterFullscreen(view, callback)
+                    
+                    // --- NEW ADDITION: Crop and stretch video to remove black bars ---
+                    val js = """
+                        var videos = document.getElementsByTagName('video');
+                        for(var i=0; i<videos.length; i++) {
+                           videos[i].style.objectFit = 'cover';
+                           videos[i].style.width = '100vw';
+                           videos[i].style.height = '100vh';
+                        }
+                    """.trimIndent()
+                    this@with.evaluateJavascript(js, null)
+                    // -----------------------------------------------------------------
+                    
                 } else {
                     super.onShowCustomView(view, callback)
                 }
@@ -227,6 +240,19 @@ fun configureWebView(
 
             override fun onHideCustomView() {
                 callbacks.onExitFullscreen()
+                
+                // --- NEW ADDITION: Restore normal video size when exiting fullscreen ---
+                val js = """
+                    var videos = document.getElementsByTagName('video');
+                    for(var i=0; i<videos.length; i++) {
+                       videos[i].style.objectFit = '';
+                       videos[i].style.width = '';
+                       videos[i].style.height = '';
+                    }
+                """.trimIndent()
+                this@with.evaluateJavascript(js, null)
+                // -----------------------------------------------------------------------
+                
                 super.onHideCustomView()
             }
 
