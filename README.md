@@ -24,6 +24,7 @@ Transform your "parked time" with a sleek, modern browser designed specifically 
 - 🎯 **Native Automotive UI:** Designed specifically for car displays, not just a stretched phone app.
 - 🎬 **Immersive Media:** Watch fullscreen DRM-protected video (supports Widevine L3 only due to technical limitations) — perfect for charging breaks or while parked in a "flat, boring desert world."
 - 🎨 **Light + AMOLED Themes:** Switch between a bright light theme and a true-black AMOLED dark mode built for car displays.
+- 📺 **Crop to Fill:** Scale video content to fill ultra-wide car displays with a single tap, bypassing native fullscreen limitations while keeping browser controls accessible.
 - 🌓 **Beta Dark Pages:** Optionally ask WebView to darken supported pages while the dark theme is active.
 - 🏠 **Home Page Or Start Page:** Launch straight into a custom home page, or use the start page dashboard when no home page is set.
 - 🚀 **Six Quick Links:** The start page now supports up to six shortcut cards with default popular sites and a custom background image.
@@ -40,6 +41,11 @@ Transform your "parked time" with a sleek, modern browser designed specifically 
 ## 🆕 Recent Enhancements
 
 - Added a native start page with six configurable quick-link slots.
+- Added **Crop to Fill** mode: Automatically scales video elements to cover the entire screen on wide displays using `object-fit: cover`.
+- Improved **Video Restoration**: Implemented a robust `restoreUI()` system that preserves original page styles and triggers a resize event to fix layout regressions on sites like YouTube.
+- Added **Document Overflow Lock**: Prevents page scrolling while in Zoom/Crop mode to keep the video centered.
+- Added BMW iDrive Rotary Zoom: Use the iDrive rotary controller to zoom in/out on video elements (1.0x to 2.0x).
+- Added BMW iDrive Touchpad Mouse: Use the iDrive controller's touchpad surface to move a virtual cursor and press the center button to click.
 - Added default quick links for YouTube Mobile, Google, Twitch, Kick, Wikipedia, and Weather.com.
 - Added a user-defined home page that disables the start page until cleared.
 - Added support for multiple browser tabs with an in-app tab manager.

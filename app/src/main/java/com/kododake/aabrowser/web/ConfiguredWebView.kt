@@ -39,6 +39,7 @@ data class BrowserCallbacks(
     ) -> Unit = { _, _, _, cancel -> cancel() },
     val onEnterFullscreen: (View, WebChromeClient.CustomViewCallback) -> Unit = { _, _ -> },
     val onExitFullscreen: () -> Unit = {},
+    val onPageStarted: (String) -> Unit = {},
     val onPermissionRequest: (PermissionRequest) -> Unit = { it.deny() }
 )
 
@@ -115,6 +116,7 @@ fun configureWebView(
             override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 val stringUrl = url ?: return
+                callbacks.onPageStarted(stringUrl)
                 val uri = Uri.parse(stringUrl)
                 val scheme = uri.scheme?.lowercase()
 
@@ -131,6 +133,7 @@ fun configureWebView(
             override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
                 view.evaluateJavascript(SpeechRecognitionBridge.POLYFILL_JS, null)
+                view.evaluateJavascript(RESTORE_UI_JS, null)
                 url?.let(callbacks.onUrlChange)
             }
 
@@ -232,13 +235,44 @@ fun configureWebView(
                                 var v = videos[i];
                                 if (!v.hasAttribute('data-orig-fit')) {
                                     v.setAttribute('data-orig-fit', v.style.objectFit || '');
+                                    v.setAttribute('data-orig-pos', v.style.position || '');
+                                    v.setAttribute('data-orig-top', v.style.top || '');
+                                    v.setAttribute('data-orig-left', v.style.left || '');
                                     v.setAttribute('data-orig-w', v.style.width || '');
                                     v.setAttribute('data-orig-h', v.style.height || '');
+                                    v.setAttribute('data-orig-z', v.style.zIndex || '');
                                 }
-                                v.style.objectFit = 'cover';
-                                v.style.width = '100vw';
-                                v.style.height = '100vh';
+                                v.style.setProperty('position', 'fixed', 'important');
+                                v.style.setProperty('top', '0', 'important');
+                                v.style.setProperty('left', '0', 'important');
+                                v.style.setProperty('width', '100vw', 'important');
+                                v.style.setProperty('height', '100vh', 'important');
+                                v.style.setProperty('z-index', '2147483647', 'important');
+                                v.style.setProperty('object-fit', 'cover', 'important');
+                                v.style.setProperty('object-position', 'center center', 'important');
                             }
+                            
+                            var selectorsToHide = [
+                                '.ytp-chrome-bottom', '.ytp-chrome-top', '.ytp-gradient-bottom', 
+                                '.ytp-gradient-top', '.ytp-show-cards-title', 'ytm-header-bar',
+                                '.ytp-ce-element', '.ytp-pause-overlay', '.video-player__overlay',
+                                '.vp-controls', '.vp-title', '.vp-nudge-wrapper',
+                                '.jw-controls', '.jw-title', '.jw-overlays', '.dmp_Controls',
+                                '.video-controls', '.player-controls', '.controls-container'
+                            ];
+                            selectorsToHide.forEach(s => {
+                                document.querySelectorAll(s).forEach(el => el.style.setProperty('display', 'none', 'important'));
+                            });
+
+                            // Save and Lock the body/html
+                            if (!document.documentElement.hasAttribute('data-orig-overflow')) {
+                                document.documentElement.setAttribute('data-orig-overflow', document.documentElement.style.overflow || '');
+                            }
+                            if (!document.body.hasAttribute('data-orig-overflow')) {
+                                document.body.setAttribute('data-orig-overflow', document.body.style.overflow || '');
+                            }
+                            document.documentElement.style.setProperty('overflow', 'hidden', 'important');
+                            document.body.style.setProperty('overflow', 'hidden', 'important');
                         })();
                     """.trimIndent()
                     this@with.evaluateJavascript(js, null)
@@ -251,27 +285,7 @@ fun configureWebView(
 
             override fun onHideCustomView() {
                 callbacks.onExitFullscreen()
-                
-                // --- REVISED: Restore exact previous styles using saved attributes ---
-                val js = """
-                    (function() {
-                        var videos = document.getElementsByTagName('video');
-                        for(var i=0; i<videos.length; i++) {
-                            var v = videos[i];
-                            if (v.hasAttribute('data-orig-fit')) {
-                                v.style.objectFit = v.getAttribute('data-orig-fit');
-                                v.style.width = v.getAttribute('data-orig-w');
-                                v.style.height = v.getAttribute('data-orig-h');
-                                v.removeAttribute('data-orig-fit');
-                                v.removeAttribute('data-orig-w');
-                                v.removeAttribute('data-orig-h');
-                            }
-                        }
-                    })();
-                """.trimIndent()
-                this@with.evaluateJavascript(js, null)
-                // -----------------------------------------------------------------------
-                
+                this@with.evaluateJavascript("if(typeof restoreUI === 'function') { restoreUI(); }", null)
                 super.onHideCustomView()
             }
 
@@ -397,3 +411,67 @@ private const val MOBILE_CHROME_UA = "Mozilla/5.0 (Linux; Android 10; K) AppleWe
 private const val WINDOWS_CHROME_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROME_VERSION} Safari/537.36"
 private const val SAFARI_MAC_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
 private const val SAFARI_IOS_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+
+private const val RESTORE_UI_JS = """
+    window.restoreUI = function() {
+        var selectorsToHide = [
+            '.ytp-chrome-bottom', '.ytp-chrome-top', '.ytp-gradient-bottom', 
+            '.ytp-gradient-top', '.ytp-show-cards-title', 'ytm-header-bar',
+            '.ytp-ce-element', '.ytp-pause-overlay', '.video-player__overlay',
+            '.vp-controls', '.vp-title', '.vp-nudge-wrapper',
+            '.jw-controls', '.jw-title', '.jw-overlays', '.dmp_Controls',
+            '.video-controls', '.player-controls', '.controls-container'
+        ];
+        selectorsToHide.forEach(function(s) {
+            document.querySelectorAll(s).forEach(function(el) {
+                el.style.display = "";
+            });
+        });
+
+        if (document.documentElement.hasAttribute('data-orig-overflow')) {
+            document.documentElement.style.overflow = document.documentElement.getAttribute('data-orig-overflow');
+            document.documentElement.removeAttribute('data-orig-overflow');
+        } else {
+            document.documentElement.style.overflow = "auto";
+        }
+        if (document.body.hasAttribute('data-orig-overflow')) {
+            document.body.style.overflow = document.body.getAttribute('data-orig-overflow');
+            document.body.removeAttribute('data-orig-overflow');
+        } else {
+            document.body.style.overflow = "auto";
+        }
+
+        var videos = document.getElementsByTagName('video');
+        for (var i = 0; i < videos.length; i++) {
+            var v = videos[i];
+            if (v.hasAttribute('data-orig-fit')) {
+                v.style.objectFit = v.getAttribute('data-orig-fit');
+                v.style.position = v.getAttribute('data-orig-pos');
+                v.style.top = v.getAttribute('data-orig-top');
+                v.style.left = v.getAttribute('data-orig-left');
+                v.style.width = v.getAttribute('data-orig-w');
+                v.style.height = v.getAttribute('data-orig-h');
+                v.style.zIndex = v.getAttribute('data-orig-z');
+                v.removeAttribute('data-orig-fit');
+                v.removeAttribute('data-orig-pos');
+                v.removeAttribute('data-orig-top');
+                v.removeAttribute('data-orig-left');
+                v.removeAttribute('data-orig-w');
+                v.removeAttribute('data-orig-h');
+                v.removeAttribute('data-orig-z');
+            } else {
+                v.style.removeProperty('position');
+                v.style.removeProperty('top');
+                v.style.removeProperty('left');
+                v.style.removeProperty('width');
+                v.style.removeProperty('height');
+                v.style.removeProperty('z-index');
+                v.style.removeProperty('object-fit');
+                v.style.removeProperty('object-position');
+                v.style.removeProperty('transform');
+                v.style.removeProperty('transition');
+            }
+        }
+        window.dispatchEvent(new Event('resize'));
+    };
+"""

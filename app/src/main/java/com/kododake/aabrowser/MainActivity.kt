@@ -19,6 +19,7 @@ import android.os.Looper
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.ContextThemeWrapper
+import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
@@ -116,6 +117,12 @@ class MainActivity : AppCompatActivity() {
     private var shouldForceSessionRestore: Boolean = false
     private var isShowingStartPage: Boolean = false
     private var isSyncingAddressFields: Boolean = false
+    private var videoZoomScale = 1.0
+
+    private var cursorX = 0f
+    private var cursorY = 0f
+    private var isCursorVisible = false
+    private val hideCursorRunnable = Runnable { hideVirtualCursor() }
 
     override fun attachBaseContext(newBase: Context?) {
         if (newBase == null) {
@@ -682,11 +689,15 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             },
-            onEnterFullscreen = { view, callback ->
-                runOnUiThread { enterFullscreen(view, callback) }
+            onEnterFullscreen = { _, callback ->
+                // Do nothing to prevent native fullscreen
+                callback.onCustomViewHidden()
             },
             onExitFullscreen = {
-                runOnUiThread { exitFullscreen(true) }
+                // Do nothing
+            },
+            onPageStarted = { _ ->
+                runOnUiThread { resetVideoZoom() }
             },
             onPermissionRequest = { request ->
                 runOnUiThread { handleWebPermissionRequest(request) }
@@ -1009,6 +1020,88 @@ class MainActivity : AppCompatActivity() {
         binding.buttonTabs.setOnClickListener { showTabManager() }
         binding.buttonNewTab.setOnClickListener {
             createNewTab(activate = true)
+            hideMenuOverlay()
+        }
+        binding.btnZoomFill.setOnClickListener {
+            android.util.Log.d("BMW_UI", "Zoom Fill Clicked")
+            
+            // Android UI: Set immersive mode
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_FULLSCREEN)
+
+            val js = """
+                (function() {
+                    var selectors = [
+                        'video', '.html5-main-video', '.video-stream', 
+                        '[class*="player"] video', '[class*="video"] video', 
+                        '.video-player__container video', '.vp-video video', 
+                        '.dmp_VideoView-video', '.jw-video', '#dv-web-player video'
+                    ];
+                    var video = null;
+                    for (var i = 0; i < selectors.length; i++) {
+                        video = document.querySelector(selectors[i]);
+                        if (video) break;
+                    }
+                    if (video) {
+                        // 1. Save original styles if not already saved
+                        if (!video.hasAttribute('data-orig-fit')) {
+                            video.setAttribute('data-orig-fit', video.style.objectFit || '');
+                            video.setAttribute('data-orig-pos', video.style.position || '');
+                            video.setAttribute('data-orig-top', video.style.top || '');
+                            video.setAttribute('data-orig-left', video.style.left || '');
+                            video.setAttribute('data-orig-w', video.style.width || '');
+                            video.setAttribute('data-orig-h', video.style.height || '');
+                            video.setAttribute('data-orig-z', video.style.zIndex || '');
+                        }
+
+                        // 2. Force the video to anchor to the ABSOLUTE screen edges
+                        video.style.setProperty('position', 'fixed', 'important');
+                        video.style.setProperty('top', '0', 'important');
+                        video.style.setProperty('left', '0', 'important');
+                        video.style.setProperty('width', '100vw', 'important');
+                        video.style.setProperty('height', '100vh', 'important');
+                        video.style.setProperty('z-index', '2147483647', 'important');
+                        
+                        // 3. Perform the Crop-to-Fill
+                        video.style.setProperty('object-fit', 'cover', 'important');
+                        video.style.setProperty('object-position', 'center center', 'important');
+                        video.style.setProperty('transform', 'none', 'important');
+
+                        // 4. Hide ALL internal Video UI (controls, progress bar, title)
+                        var selectorsToHide = [
+                            '.ytp-chrome-bottom', '.ytp-chrome-top', '.ytp-gradient-bottom', 
+                            '.ytp-gradient-top', '.ytp-show-cards-title', 'ytm-header-bar',
+                            '.ytp-ce-element', '.ytp-pause-overlay', '.video-player__overlay',
+                            '.vp-controls', '.vp-title', '.vp-nudge-wrapper',
+                            '.jw-controls', '.jw-title', '.jw-overlays', '.dmp_Controls',
+                            '.video-controls', '.player-controls', '.controls-container'
+                        ];
+                        selectorsToHide.forEach(s => {
+                            document.querySelectorAll(s).forEach(el => el.style.setProperty('display', 'none', 'important'));
+                        });
+
+                        // 5. Lock the body so we don't accidentally scroll away from the video
+                        if (!document.documentElement.hasAttribute('data-orig-overflow')) {
+                            document.documentElement.setAttribute('data-orig-overflow', document.documentElement.style.overflow || '');
+                        }
+                        if (!document.body.hasAttribute('data-orig-overflow')) {
+                            document.body.setAttribute('data-orig-overflow', document.body.style.overflow || '');
+                        }
+                        document.documentElement.style.setProperty('overflow', 'hidden', 'important');
+                        document.body.style.setProperty('overflow', 'hidden', 'important');
+                    }
+                })();
+            """.trimIndent()
+            webView?.evaluateJavascript(js, null)
+            hideMenuOverlay()
+        }
+        binding.btnResetZoom.setOnClickListener {
+            resetVideoZoom()
             hideMenuOverlay()
         }
         binding.buttonStartPage.setOnClickListener {
@@ -2246,9 +2339,142 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) { null }
     }
 
+    override fun onGenericMotionEvent(event: MotionEvent): Boolean {
+        if (event.isFromSource(InputDevice.SOURCE_ROTARY_ENCODER)) {
+            if (event.action == MotionEvent.ACTION_SCROLL) {
+                val scrollDelta = event.getAxisValue(MotionEvent.AXIS_SCROLL)
+                if (scrollDelta > 0) {
+                    zoomVideo(0.05)
+                } else if (scrollDelta < 0) {
+                    zoomVideo(-0.05)
+                }
+                return true
+            }
+        }
+
+        if (event.isFromSource(InputDevice.SOURCE_TOUCHPAD) || event.isFromSource(InputDevice.SOURCE_MOUSE)) {
+            when (event.action) {
+                MotionEvent.ACTION_HOVER_MOVE, MotionEvent.ACTION_MOVE -> {
+                    val dx = event.getAxisValue(MotionEvent.AXIS_X)
+                    val dy = event.getAxisValue(MotionEvent.AXIS_Y)
+                    updateCursorPosition(dx, dy)
+                    return true
+                }
+            }
+        }
+        return super.onGenericMotionEvent(event)
+    }
+
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent?): Boolean {
+        if (isCursorVisible && (keyCode == android.view.KeyEvent.KEYCODE_ENTER || keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER)) {
+            android.util.Log.d("BMW_LOG", "iDrive Click at: X=${binding.virtualCursor.x} Y=${binding.virtualCursor.y}")
+            dispatchClickAtCursor()
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    private fun updateCursorPosition(dx: Float, dy: Float) {
+        showVirtualCursor()
+        val sensitivity = 1.5f
+        cursorX = (cursorX + dx * sensitivity).coerceIn(0f, binding.root.width.toFloat())
+        cursorY = (cursorY + dy * sensitivity).coerceIn(0f, binding.root.height.toFloat())
+
+        binding.virtualCursor.x = cursorX
+        binding.virtualCursor.y = cursorY
+
+        handler.removeCallbacks(hideCursorRunnable)
+        handler.postDelayed(hideCursorRunnable, 5000)
+    }
+
+    private fun showVirtualCursor() {
+        if (!isCursorVisible) {
+            isCursorVisible = true
+            binding.virtualCursor.isVisible = true
+            if (cursorX == 0f && cursorY == 0f) {
+                cursorX = binding.root.width / 2f
+                cursorY = binding.root.height / 2f
+            }
+        }
+    }
+
+    private fun hideVirtualCursor() {
+        isCursorVisible = false
+        binding.virtualCursor.isVisible = false
+    }
+
+    private fun dispatchClickAtCursor() {
+        val downTime = android.os.SystemClock.uptimeMillis()
+        val eventTime = android.os.SystemClock.uptimeMillis()
+
+        val downEvent = MotionEvent.obtain(downTime, eventTime, MotionEvent.ACTION_DOWN, cursorX, cursorY, 0)
+        val upEvent = MotionEvent.obtain(downTime, eventTime + 50, MotionEvent.ACTION_UP, cursorX, cursorY, 0)
+
+        binding.root.dispatchTouchEvent(downEvent)
+        binding.root.dispatchTouchEvent(upEvent)
+
+        downEvent.recycle()
+        upEvent.recycle()
+
+        showMenuButtonTemporarily()
+    }
+
+    private fun resetVideoZoom() {
+        videoZoomScale = 1.0
+        
+        // Restore Android UI
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
+
+        webView?.evaluateJavascript("if(typeof restoreUI === 'function') { restoreUI(); }", null)
+    }
+
+    private fun zoomVideo(delta: Double) {
+        videoZoomScale += delta
+        if (videoZoomScale < 1.0) videoZoomScale = 1.0
+        if (videoZoomScale > 2.0) videoZoomScale = 2.0
+
+        android.util.Log.d("BMW_LOG", "Zoom triggered! New Scale: $videoZoomScale")
+
+        val js = """
+            (function() {
+                var selectors = [
+                    'video', '.html5-main-video', '.video-stream', 
+                    '[class*="player"] video', '[class*="video"] video', 
+                    '.video-player__container video', '.vp-video video', 
+                    '.dmp_VideoView-video', '.jw-video', '#dv-web-player video'
+                ];
+                var video = null;
+                for (var i = 0; i < selectors.length; i++) {
+                    video = document.querySelector(selectors[i]);
+                    if (video) break;
+                }
+                if (video) {
+                    video.style.transform = 'scale($videoZoomScale)';
+                    video.style.transition = 'transform 0.1s ease-out';
+                    video.style.transformOrigin = 'center center';
+                    
+                    // Hide end-cards and overlays if zoomed in
+                    if ($videoZoomScale > 1.0) {
+                        var overlays = [
+                            '.ytp-ce-element', '.ytp-pause-overlay', '.video-player__overlay',
+                            '.vp-controls', '.vp-title', '.jw-overlays', '.dmp_Controls'
+                        ];
+                        overlays.forEach(function(s) {
+                            document.querySelectorAll(s).forEach(function(el) {
+                                el.style.setProperty('display', 'none', 'important');
+                            });
+                        });
+                    }
+                }
+            })();
+        """.trimIndent()
+        webView?.evaluateJavascript(js, null)
+    }
+
     companion object {
-        private const val MENU_BUTTON_AUTO_HIDE_DELAY_MS = 3000L
-        private const val MENU_BUTTON_SHOW_DELAY_MS = 500L
+        const val MENU_BUTTON_AUTO_HIDE_DELAY_MS = 10000L
+        const val MENU_BUTTON_SHOW_DELAY_MS = 500L
         private const val GITHUB_REPO_URL = "https://github.com/kododake/AABrowser"
         private const val KEEP_ANDROID_OPEN_URL = "https://keepandroidopen.org"
         private const val FREE_DROID_WARN_SOLUTIONS_URL = "https://github.com/woheller69/FreeDroidWarn?tab=readme-ov-file#solutions"
