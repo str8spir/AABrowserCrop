@@ -19,4 +19,10 @@
     <item name="viewOssLicensesButton" type="id" />
     <item name="buttonQrCopy" type="id" />
     <item name="buttonQrExternalBrowser" type="id" />
+    <item name="navigationDock" type="id" />
+    <item name="btnDockMenu" type="id" />
+    <item name="btnDockFullscreen" type="id" />
+    <item name="btnDockReset" type="id" />
+    <item name="btnDockZoomIn" type="id" />
+    <item name="btnDockZoomOut" type="id" />
 </resources>

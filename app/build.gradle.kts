@@ -65,6 +65,10 @@ android {
         viewBinding = true
     }
 
+    kotlin {
+        jvmToolchain(21)
+    }
+
     androidComponents {
         onVariants { variant ->
             val vNameStr = android.defaultConfig.versionName ?: "unknown"

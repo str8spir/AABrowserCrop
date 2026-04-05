@@ -5,15 +5,6 @@
     android:layout_height="match_parent"
     android:fitsSystemWindows="true">
 
-    <com.google.android.material.progressindicator.LinearProgressIndicator
-        android:id="@+id/progressIndicator"
-        android:layout_width="match_parent"
-        android:layout_height="3dp"
-        android:layout_gravity="top"
-        android:visibility="gone"
-        app:trackThickness="3dp"
-        app:indicatorColor="?attr/colorPrimary" />
-
     <FrameLayout
         android:id="@+id/contentRoot"
         android:layout_width="match_parent"
@@ -27,162 +18,21 @@
             android:clipToPadding="false" />
 
         <FrameLayout
-            android:id="@+id/startPageRoot"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:visibility="gone"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="@drawable/start_page_gradient">
-
-            <ImageView
-                android:id="@+id/startPageBackgroundImage"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:scaleType="centerCrop"
-                android:visibility="gone"
-                android:contentDescription="@null" />
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="#8C04111A" />
-
-            <androidx.core.widget.NestedScrollView
-                android:id="@+id/startPageScroll"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:fillViewport="true"
-                android:clipToPadding="false"
-                android:padding="24dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:gravity="center_horizontal">
-
-                    <TextView
-                        android:id="@+id/startPageHeadline"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/start_page_headline"
-                        android:textAppearance="@style/TextAppearance.Material3.DisplaySmall"
-                        android:textStyle="bold"
-                        android:textColor="@android:color/white" />
-
-                    <TextView
-                        android:id="@+id/startPageSubtitle"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:gravity="center"
-                        android:text="@string/start_page_subtitle"
-                        android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
-                        android:textColor="#E6FFFFFF" />
-
-                    <com.google.android.material.card.MaterialCardView
-                        android:id="@+id/startPageCard"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="24dp"
-                        app:cardCornerRadius="24dp"
-                        app:cardElevation="0dp"
-                        app:cardBackgroundColor="#CCFFFFFF">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:padding="20dp">
-
-                            <TextView
-                                android:id="@+id/startPageCardTitle"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/start_page_card_title"
-                                android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
-                                android:textStyle="bold"
-                                android:textColor="?attr/colorOnSurface" />
-
-                            <TextView
-                                android:id="@+id/startPageCardSubtitle"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:text="@string/start_page_card_subtitle"
-                                android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
-                                android:textColor="?attr/colorOnSurfaceVariant" />
-
-                            <LinearLayout
-                                android:id="@+id/startPageQuickLinksContainer"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="16dp"
-                                android:orientation="vertical" />
-
-                            <TextView
-                                android:id="@+id/startPageQuickLinksHint"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="16dp"
-                                android:gravity="center"
-                                android:text="@string/start_page_quick_links_hint"
-                                android:textAppearance="@style/TextAppearance.Material3.BodySmall"
-                                android:textColor="?attr/colorOnSurfaceVariant" />
-                        </LinearLayout>
-                    </com.google.android.material.card.MaterialCardView>
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
-                        android:orientation="horizontal"
-                        android:gravity="center">
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/buttonStartPageBookmarks"
-                            style="?attr/materialButtonTonalStyle"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:layout_marginEnd="6dp"
-                            android:text="@string/start_page_open_bookmarks"
-                            app:icon="@drawable/kid_star_24px" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/buttonStartPageTabs"
-                            style="?attr/materialButtonTonalStyle"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:layout_marginStart="6dp"
-                            android:layout_marginEnd="6dp"
-                            android:text="@string/start_page_open_tabs"
-                            app:icon="@android:drawable/ic_menu_agenda" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/buttonStartPageResume"
-                            style="?attr/materialButtonTonalStyle"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:layout_marginStart="6dp"
-                            android:text="@string/start_page_resume_last_page"
-                            android:visibility="gone"
-                            app:icon="@drawable/refresh_24px" />
-                    </LinearLayout>
-                </LinearLayout>
-            </androidx.core.widget.NestedScrollView>
-        </FrameLayout>
-
-        <FrameLayout
             android:id="@+id/fullscreenContainer"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:visibility="gone" />
 
     </FrameLayout>
+
+    <com.google.android.material.progressindicator.LinearProgressIndicator
+        android:id="@+id/progressIndicator"
+        android:layout_width="match_parent"
+        android:layout_height="3dp"
+        android:layout_gravity="top"
+        android:visibility="gone"
+        app:trackThickness="3dp"
+        app:indicatorColor="?attr/colorPrimary" />
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/persistentAddressBarCard"
@@ -249,7 +99,7 @@
                 android:layout_height="48dp"
                 android:contentDescription="@string/menu_clear_address"
                 android:visibility="gone"
-                app:icon="@drawable/ic_close"
+                app:icon="@drawable/ic_remove"
                 app:iconSize="20dp"
                 app:iconTint="?attr/colorOnSurfaceVariant" />
 
@@ -278,7 +128,8 @@
         android:id="@+id/menuOverlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:visibility="gone">
+        android:visibility="gone"
+        android:elevation="100dp">
 
         <View
             android:id="@+id/menuOverlayScrim"
@@ -391,7 +242,7 @@
                                         android:layout_height="wrap_content"
                                         android:text="@string/menu_close"
                                         android:textColor="?attr/colorOnPrimary"
-                                        app:icon="@drawable/ic_close"
+                                        app:icon="@drawable/ic_remove"
                                         app:iconTint="?attr/colorOnPrimary"
                                         app:rippleColor="#40FFFFFF" />
                                 </LinearLayout>
@@ -456,7 +307,7 @@
                                         android:layout_height="48dp"
                                         android:contentDescription="@string/menu_clear_address"
                                         android:visibility="gone"
-                                        app:icon="@drawable/ic_close"
+                                        app:icon="@drawable/ic_remove"
                                         app:iconSize="20dp"
                                         app:iconTint="?attr/colorOnSurfaceVariant" />
 
@@ -486,7 +337,7 @@
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:columnCount="3"
-                                    android:rowCount="3"
+                                    android:rowCount="5"
                                     android:padding="12dp"
                                     android:alignmentMode="alignBounds"
                                     android:columnOrderPreserved="false">
@@ -630,7 +481,71 @@
                                         android:layout_margin="4dp"
                                         android:text="@string/menu_new_tab"
                                         android:textSize="13sp"
-                                        app:icon="@android:drawable/ic_menu_add"
+                                        app:icon="@drawable/ic_add"
+                                        app:iconGravity="top"
+                                        app:iconSize="@dimen/icon_size_small"
+                                        app:iconPadding="4dp" />
+
+                                    <com.google.android.material.button.MaterialButton
+                                        android:id="@+id/btnZoomFill"
+                                        style="@style/Widget.Material3.Button.TonalButton"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_columnWeight="1"
+                                        android:layout_row="3"
+                                        android:layout_column="0"
+                                        android:layout_margin="4dp"
+                                        android:text="@string/menu_zoom_fill"
+                                        android:textSize="13sp"
+                                        app:icon="@drawable/devices_other_24px"
+                                        app:iconGravity="top"
+                                        app:iconSize="@dimen/icon_size_small"
+                                        app:iconPadding="4dp" />
+
+                                    <com.google.android.material.button.MaterialButton
+                                        android:id="@+id/btnResetZoom"
+                                        style="@style/Widget.Material3.Button.TonalButton"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_columnWeight="1"
+                                        android:layout_row="3"
+                                        android:layout_column="1"
+                                        android:layout_margin="4dp"
+                                        android:text="@string/menu_zoom_reset"
+                                        android:textSize="13sp"
+                                        app:icon="@drawable/lock_reset_24px"
+                                        app:iconGravity="top"
+                                        app:iconSize="@dimen/icon_size_small"
+                                        app:iconPadding="4dp" />
+
+                                    <com.google.android.material.button.MaterialButton
+                                        android:id="@+id/btnMenuZoomIn"
+                                        style="@style/Widget.Material3.Button.TonalButton"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_columnWeight="1"
+                                        android:layout_row="4"
+                                        android:layout_column="0"
+                                        android:layout_margin="4dp"
+                                        android:text="Zoom In"
+                                        android:textSize="13sp"
+                                        app:icon="@drawable/ic_add"
+                                        app:iconGravity="top"
+                                        app:iconSize="@dimen/icon_size_small"
+                                        app:iconPadding="4dp" />
+
+                                    <com.google.android.material.button.MaterialButton
+                                        android:id="@+id/btnMenuZoomOut"
+                                        style="@style/Widget.Material3.Button.TonalButton"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_columnWeight="1"
+                                        android:layout_row="4"
+                                        android:layout_column="1"
+                                        android:layout_margin="4dp"
+                                        android:text="Zoom Out"
+                                        android:textSize="13sp"
+                                        app:icon="@drawable/ic_remove"
                                         app:iconGravity="top"
                                         app:iconSize="@dimen/icon_size_small"
                                         app:iconPadding="4dp" />
@@ -978,7 +893,7 @@
                                 app:cornerRadius="@dimen/card_corner_radius"
                                 app:strokeWidth="1.5dp"
                                 app:strokeColor="?attr/colorPrimary"
-                                app:icon="@android:drawable/ic_menu_add"
+                                app:icon="@drawable/ic_add"
                                 app:iconGravity="textStart"
                                 app:iconSize="24dp"
                                 app:iconPadding="12dp" />
@@ -1305,16 +1220,235 @@
         </com.google.android.material.card.MaterialCardView>
     </FrameLayout>
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/menuFab"
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/navigationDock"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|start"
         android:layout_margin="16dp"
-        android:contentDescription="@string/menu_open_description"
-        app:srcCompat="@android:drawable/ic_menu_more"
-        app:tint="?attr/colorOnPrimary"
-        app:backgroundTint="?attr/colorPrimary"
-        app:elevation="6dp" />
+        app:cardCornerRadius="28dp"
+        app:cardElevation="6dp"
+        app:cardBackgroundColor="?attr/colorPrimary"
+        app:strokeWidth="0dp">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:orientation="horizontal"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:gravity="center_vertical">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDockMenu"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/menu_open_description"
+                app:icon="@android:drawable/ic_menu_more"
+                app:iconSize="24dp"
+                app:iconTint="?attr/colorOnPrimary" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDockFullscreen"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/menu_zoom_fill"
+                app:icon="@drawable/devices_other_24px"
+                app:iconSize="22dp"
+                app:iconTint="?attr/colorOnPrimary" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDockReset"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/menu_zoom_reset"
+                app:icon="@drawable/lock_reset_24px"
+                app:iconSize="22dp"
+                app:iconTint="?attr/colorOnPrimary" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDockZoomIn"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="Zoom In"
+                app:icon="@drawable/ic_add"
+                app:iconSize="22dp"
+                app:iconTint="?attr/colorOnPrimary" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDockZoomOut"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="Zoom Out"
+                app:icon="@drawable/ic_remove"
+                app:iconSize="22dp"
+                app:iconTint="?attr/colorOnPrimary" />
+
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <FrameLayout
+        android:id="@+id/startPageRoot"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="@drawable/start_page_gradient">
+
+        <ImageView
+            android:id="@+id/startPageBackgroundImage"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:visibility="gone"
+            android:contentDescription="@null" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#8C04111A" />
+
+        <androidx.core.widget.NestedScrollView
+            android:id="@+id/startPageScroll"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:clipToPadding="false"
+            android:padding="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center_horizontal">
+
+                <TextView
+                    android:id="@+id/startPageHeadline"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/start_page_headline"
+                    android:textAppearance="@style/TextAppearance.Material3.DisplaySmall"
+                    android:textStyle="bold"
+                    android:textColor="@android:color/white" />
+
+                <TextView
+                    android:id="@+id/startPageSubtitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center"
+                    android:text="@string/start_page_subtitle"
+                    android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
+                    android:textColor="#E6FFFFFF" />
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/startPageCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="0dp"
+                    app:cardBackgroundColor="#CCFFFFFF">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="20dp">
+
+                        <TextView
+                            android:id="@+id/startPageCardTitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/start_page_card_title"
+                            android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
+                            android:textStyle="bold"
+                            android:textColor="?attr/colorOnSurface" />
+
+                        <TextView
+                            android:id="@+id/startPageCardSubtitle"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="@string/start_page_card_subtitle"
+                            android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+                            android:textColor="?attr/colorOnSurfaceVariant" />
+
+                        <LinearLayout
+                            android:id="@+id/startPageQuickLinksContainer"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="16dp"
+                            android:orientation="vertical" />
+
+                        <TextView
+                            android:id="@+id/startPageQuickLinksHint"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="16dp"
+                            android:gravity="center"
+                            android:text="@string/start_page_quick_links_hint"
+                            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+                            android:textColor="?attr/colorOnSurfaceVariant" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:orientation="horizontal"
+                    android:gravity="center">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/buttonStartPageBookmarks"
+                        style="?attr/materialButtonTonalStyle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
+                        android:text="@string/start_page_open_bookmarks"
+                        app:icon="@drawable/kid_star_24px" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/buttonStartPageTabs"
+                        style="?attr/materialButtonTonalStyle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:layout_marginEnd="6dp"
+                        android:text="@string/start_page_open_tabs"
+                        app:icon="@android:drawable/ic_menu_agenda" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/buttonStartPageResume"
+                        style="?attr/materialButtonTonalStyle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:text="@string/start_page_resume_last_page"
+                        android:visibility="gone"
+                        app:icon="@drawable/refresh_24px" />
+                </LinearLayout>
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
+    </FrameLayout>
+
+    <ImageView
+        android:id="@+id/virtualCursor"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@drawable/ic_cursor"
+        android:visibility="gone"
+        android:elevation="101dp"
+        android:importantForAccessibility="no" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

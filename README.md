@@ -1,4 +1,4 @@
-# <img src="https://github.com/user-attachments/assets/fa4252fa-b71e-4c87-9b93-d8ad832434cc" width="48" height="48" valign="bottom" /> AA Browser
+# <img src="https://github.com/user-attachments/assets/fa4252fa-b71e-4c87-9b93-d8ad832434cc" width="48" height="48" style="vertical-align: bottom;" /> AA Browser
 
 [![Android](https://img.shields.io/badge/Android-15%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://www.android.com/)
 [![License](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
@@ -21,9 +21,10 @@ Transform your "parked time" with a sleek, modern browser designed specifically 
 
 ## ✨ Features
 
-- 🎯 **Native Automotive UI:** Designed specifically for car displays, not just a stretched phone app.
-- 🎬 **Immersive Media:** Watch fullscreen DRM-protected video (supports Widevine L3 only due to technical limitations) — perfect for charging breaks or while parked in a "flat, boring desert world."
+- 📺 **Multi-Action Floating Dock:** A horizontal 5-button dock providing instant access to the Menu, Video Crop-to-Fill, Zoom Reset, and manual Zoom In/Out controls.
+- 🎬 **Immersive Media:** Watch fullscreen DRM-protected video (supports Widevine L3 only due to technical limitations) — perfect for charging breaks or while parked.
 - 🎨 **Light + AMOLED Themes:** Switch between a bright light theme and a true-black AMOLED dark mode built for car displays.
+- 📺 **Crop to Fill:** Scale video content to fill ultra-wide car displays with a single tap, bypassing native fullscreen limitations while keeping browser controls accessible via the dock.
 - 🌓 **Beta Dark Pages:** Optionally ask WebView to darken supported pages while the dark theme is active.
 - 🏠 **Home Page Or Start Page:** Launch straight into a custom home page, or use the start page dashboard when no home page is set.
 - 🚀 **Six Quick Links:** The start page now supports up to six shortcut cards with default popular sites and a custom background image.
@@ -31,7 +32,7 @@ Transform your "parked time" with a sleek, modern browser designed specifically 
 - ♻️ **Restore Last Tabs:** Optionally reopen the full tab session from your previous launch when no home page override is active.
 - 🔁 **Resume Last Page:** Optionally reopen the last visited page on launch when no home page is configured.
 - 🧭 **Persistent URL Bar:** Optionally keep a compact address bar visible above the page for faster browsing.
-- 🎛️ **Configurable Quick Action Button:** Choose whether the floating button opens the controls menu or jumps straight to the URL bar, keep it always visible, and move it to a corner that fits your screen.
+- 🎛️ **Configurable Navigation Dock:** Choose whether the primary dock button opens the controls menu or jumps straight to the URL bar, keep the dock always visible, and move it to any corner of the screen.
 - 🖼️ **Cached Site Icons:** Quick-link cards cache first-party site icons locally so the start page stays branded without refetching on every launch.
 - 🔎 **Global Display Scale:** Adjust the full UI and page-content scale together with presets or a custom percentage.
 - 🔄 **Smart Desktop Mode:** Seamlessly toggle between mobile and desktop rendering.
@@ -39,7 +40,14 @@ Transform your "parked time" with a sleek, modern browser designed specifically 
 
 ## 🆕 Recent Enhancements
 
+- Added a **5-button horizontal Navigation Dock** replacing the single FAB for faster video and browser control.
+- **Fixed a critical startup crash** related to menu layout row counts on some devices.
 - Added a native start page with six configurable quick-link slots.
+- Added **Crop to Fill** mode: Automatically scales video elements to cover the entire screen on wide displays using `object-fit: cover`.
+- Improved **Video Restoration**: Implemented a robust `restoreUI()` system that preserves original page styles and triggers a resize event to fix layout regressions on sites like YouTube.
+- Added **Document Overflow Lock**: Prevents page scrolling while in Zoom/Crop mode to keep the video centered.
+- Added BMW iDrive Rotary Zoom: Use the iDrive rotary controller to zoom in/out on video elements (1.0x to 2.0x).
+- Added BMW iDrive Touchpad Mouse: Use the iDrive controller's touchpad surface to move a virtual cursor and press the center button to click.
 - Added default quick links for YouTube Mobile, Google, Twitch, Kick, Wikipedia, and Weather.com.
 - Added a user-defined home page that disables the start page until cleared.
 - Added support for multiple browser tabs with an in-app tab manager.
@@ -53,8 +61,8 @@ Transform your "parked time" with a sleek, modern browser designed specifically 
 - Added configurable floating-button behavior, visibility, and corner placement.
 - Added local caching for first-party site icons used on start-page cards.
 
-<div align="left">
-  <img width="38%" src="docs/screenshots/start-page.png" alt="Start page with six quick links" />
+<div style="text-align: left;">
+  <img src="docs/screenshots/start-page.png" width="38%" alt="Start page with six quick links" />
 </div>
 
 ---
@@ -103,23 +111,23 @@ Every contribution makes AA Browser better!
 - 🔧 **Wanna code?** Fork the repo and submit a PR!
 - 📸 **Show it off:** Share a photo of AA Browser on your dashboard in the Discussions tab!
 
-<table width="100%">
+<table style="width: 100%;">
   <tr>
-    <td align="center" valign="top" width="33%">
+    <td style="text-align: center; vertical-align: top; width: 33%;">
       <a href="https://github.com/kododake">
         <img src="https://github.com/kododake.png?s=100" width="60" alt="kododake"/><br />
         <sub><b>kododake</b></sub>
       </a><br />
       <sub>Project Lead</sub>
     </td>
-    <td align="center" valign="top" width="33%">
+    <td style="text-align: center; vertical-align: top; width: 33%;">
       <a href="https://github.com/cmacrowther">
         <img src="https://github.com/cmacrowther.png?s=100" width="60" alt="Colin Crowther"/><br />
         <sub><b>Colin Crowther</b></sub>
       </a><br />
       <sub>Design Improvements</sub>
     </td>
-    <td align="center" valign="top" width="33%">
+    <td style="text-align: center; vertical-align: top; width: 33%;">
       <a href="https://github.com/jigneshbhavani">
         <img src="https://github.com/jigneshbhavani.png?s=100" width="60" alt="jigneshbhavani"/><br />
         <sub><b>jigneshbhavani</b></sub>
