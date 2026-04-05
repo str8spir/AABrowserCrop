@@ -21,7 +21,7 @@ Transform your "parked time" with a sleek, modern browser designed specifically 
 
 ## ✨ Features
 
-- 📺 **Multi-Action Floating Dock:** A horizontal 5-button dock providing instant access to the Menu, Video Crop-to-Fill, Reset (Reload + Zoom), and manual Zoom In/Out controls.
+- 📺 **Multi-Action Floating Dock:** A horizontal 5-button dock providing instant access to the Menu, Video Crop-to-Fill, Zoom Reset, and manual Zoom In/Out controls.
 - 🎬 **Immersive Media:** Watch fullscreen DRM-protected video (supports Widevine L3 only due to technical limitations) — perfect for charging breaks or while parked.
 - 🎨 **Light + AMOLED Themes:** Switch between a bright light theme and a true-black AMOLED dark mode built for car displays.
 - 📺 **Crop to Fill:** Scale video content to fill ultra-wide car displays with a single tap, bypassing native fullscreen limitations while keeping browser controls accessible via the dock.
@@ -41,6 +41,7 @@ Transform your "parked time" with a sleek, modern browser designed specifically 
 ## 🆕 Recent Enhancements
 
 - Added a **5-button horizontal Navigation Dock** replacing the single FAB for faster video and browser control.
+- **Fixed a critical startup crash** related to menu layout row counts on some devices.
 - Added a native start page with six configurable quick-link slots.
 - Added **Crop to Fill** mode: Automatically scales video elements to cover the entire screen on wide displays using `object-fit: cover`.
 - Improved **Video Restoration**: Implemented a robust `restoreUI()` system that preserves original page styles and triggers a resize event to fix layout regressions on sites like YouTube.

@@ -99,7 +99,7 @@
                 android:layout_height="48dp"
                 android:contentDescription="@string/menu_clear_address"
                 android:visibility="gone"
-                app:icon="@drawable/ic_close"
+                app:icon="@drawable/ic_remove"
                 app:iconSize="20dp"
                 app:iconTint="?attr/colorOnSurfaceVariant" />
 
@@ -242,7 +242,7 @@
                                         android:layout_height="wrap_content"
                                         android:text="@string/menu_close"
                                         android:textColor="?attr/colorOnPrimary"
-                                        app:icon="@drawable/ic_close"
+                                        app:icon="@drawable/ic_remove"
                                         app:iconTint="?attr/colorOnPrimary"
                                         app:rippleColor="#40FFFFFF" />
                                 </LinearLayout>
@@ -307,7 +307,7 @@
                                         android:layout_height="48dp"
                                         android:contentDescription="@string/menu_clear_address"
                                         android:visibility="gone"
-                                        app:icon="@drawable/ic_close"
+                                        app:icon="@drawable/ic_remove"
                                         app:iconSize="20dp"
                                         app:iconTint="?attr/colorOnSurfaceVariant" />
 
@@ -337,7 +337,7 @@
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:columnCount="3"
-                                    android:rowCount="4"
+                                    android:rowCount="5"
                                     android:padding="12dp"
                                     android:alignmentMode="alignBounds"
                                     android:columnOrderPreserved="false">
@@ -481,7 +481,7 @@
                                         android:layout_margin="4dp"
                                         android:text="@string/menu_new_tab"
                                         android:textSize="13sp"
-                                        app:icon="@android:drawable/ic_menu_add"
+                                        app:icon="@drawable/ic_add"
                                         app:iconGravity="top"
                                         app:iconSize="@dimen/icon_size_small"
                                         app:iconPadding="4dp" />
@@ -514,6 +514,38 @@
                                         android:text="@string/menu_zoom_reset"
                                         android:textSize="13sp"
                                         app:icon="@drawable/lock_reset_24px"
+                                        app:iconGravity="top"
+                                        app:iconSize="@dimen/icon_size_small"
+                                        app:iconPadding="4dp" />
+
+                                    <com.google.android.material.button.MaterialButton
+                                        android:id="@+id/btnMenuZoomIn"
+                                        style="@style/Widget.Material3.Button.TonalButton"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_columnWeight="1"
+                                        android:layout_row="4"
+                                        android:layout_column="0"
+                                        android:layout_margin="4dp"
+                                        android:text="Zoom In"
+                                        android:textSize="13sp"
+                                        app:icon="@drawable/ic_add"
+                                        app:iconGravity="top"
+                                        app:iconSize="@dimen/icon_size_small"
+                                        app:iconPadding="4dp" />
+
+                                    <com.google.android.material.button.MaterialButton
+                                        android:id="@+id/btnMenuZoomOut"
+                                        style="@style/Widget.Material3.Button.TonalButton"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_columnWeight="1"
+                                        android:layout_row="4"
+                                        android:layout_column="1"
+                                        android:layout_margin="4dp"
+                                        android:text="Zoom Out"
+                                        android:textSize="13sp"
+                                        app:icon="@drawable/ic_remove"
                                         app:iconGravity="top"
                                         app:iconSize="@dimen/icon_size_small"
                                         app:iconPadding="4dp" />
@@ -861,7 +893,7 @@
                                 app:cornerRadius="@dimen/card_corner_radius"
                                 app:strokeWidth="1.5dp"
                                 app:strokeColor="?attr/colorPrimary"
-                                app:icon="@android:drawable/ic_menu_add"
+                                app:icon="@drawable/ic_add"
                                 app:iconGravity="textStart"
                                 app:iconSize="24dp"
                                 app:iconPadding="12dp" />
@@ -1233,7 +1265,7 @@
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:contentDescription="@string/menu_zoom_reset"
-                app:icon="@drawable/refresh_24px"
+                app:icon="@drawable/lock_reset_24px"
                 app:iconSize="22dp"
                 app:iconTint="?attr/colorOnPrimary" />
 
@@ -1243,7 +1275,7 @@
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:contentDescription="Zoom In"
-                app:icon="@android:drawable/ic_menu_add"
+                app:icon="@drawable/ic_add"
                 app:iconSize="22dp"
                 app:iconTint="?attr/colorOnPrimary" />
 
@@ -1253,7 +1285,7 @@
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:contentDescription="Zoom Out"
-                app:icon="@drawable/ic_close"
+                app:icon="@drawable/ic_remove"
                 app:iconSize="22dp"
                 app:iconTint="?attr/colorOnPrimary" />
 

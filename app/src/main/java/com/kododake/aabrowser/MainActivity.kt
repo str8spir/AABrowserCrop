@@ -1032,7 +1032,6 @@ class MainActivity : AppCompatActivity() {
         binding.btnDockFullscreen.setOnClickListener { applyVideoCropToFill() }
         binding.btnDockReset.setOnClickListener {
             resetVideoZoom()
-            webView?.reload()
         }
         binding.btnDockZoomIn.setOnClickListener { zoomVideo(0.05) }
         binding.btnDockZoomOut.setOnClickListener { zoomVideo(-0.05) }
@@ -1044,6 +1043,12 @@ class MainActivity : AppCompatActivity() {
         binding.btnResetZoom.setOnClickListener {
             resetVideoZoom()
             hideMenuOverlay()
+        }
+        binding.btnMenuZoomIn.setOnClickListener {
+            zoomVideo(0.05)
+        }
+        binding.btnMenuZoomOut.setOnClickListener {
+            zoomVideo(-0.05)
         }
         binding.buttonStartPage.setOnClickListener {
             showStartPage()
