@@ -647,8 +647,10 @@ class MainActivity : AppCompatActivity() {
         tabView.addJavascriptInterface(object {
             @android.webkit.JavascriptInterface
             fun openExternal(url: String) {
-                if (url.isNullOrBlank()) return
-                runOnUiThread { runCatching { openUriExternally(Uri.parse(url)) } }
+                runOnUiThread {
+                    val safeUri = sanitizeJsExternalUrl(tabView, url) ?: return@runOnUiThread
+                    openUriExternally(safeUri)
+                }
             }
         }, "Android")
 
@@ -1617,6 +1619,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun sanitizeJsExternalUrl(sourceWebView: android.webkit.WebView, rawUrl: String?): Uri? {
+        val currentPage = sourceWebView.url ?: return null
+        if (!currentPage.startsWith(ERROR_PAGE_ASSET_PREFIX)) return null
+
+        val candidate = rawUrl?.trim().takeUnless { it.isNullOrBlank() } ?: return null
+        val parsed = runCatching { Uri.parse(candidate) }.getOrNull() ?: return null
+        val scheme = parsed.scheme?.lowercase() ?: return null
+        if (scheme !in setOf("http", "https")) return null
+        return parsed
+    }
+
     private fun showKeyboard(view: View) {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         view.post { imm.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT) }
@@ -2539,6 +2552,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val MENU_BUTTON_AUTO_HIDE_DELAY_MS = 3000L
         private const val MENU_BUTTON_SHOW_DELAY_MS = 500L
+        private const val ERROR_PAGE_ASSET_PREFIX = "file:///android_asset/error.html"
         private const val GITHUB_REPO_URL = "https://github.com/kododake/AABrowser"
         private const val START_PAGE_SPONSOR_URL = "https://github.com/sponsors/kododake"
         private const val KEEP_ANDROID_OPEN_URL = "https://keepandroidopen.org"
