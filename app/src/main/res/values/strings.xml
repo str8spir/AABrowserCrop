@@ -137,10 +137,16 @@
     <string name="settings_clear_cookies_success_message">Stored cookies, local site data, and saved form data have been deleted from the browser.</string>
     
     <string name="settings_donate">Donate</string>
-    <string name="settings_donate_description">If you find this app useful, please consider supporting me with a donation. It really fuels my motivation to keep improving it!</string>
+    <string name="settings_donate_description">Support the project! This is a fork of AABrowser by Kododake, maintained and improved by str8spir.</string>
+    <string name="settings_donate_user_title">Support str8spir</string>
+    <string name="settings_donate_user_description">If you enjoy the new Floating Island UI and video scaling fixes, consider supporting my work!</string>
+    <string name="settings_donate_original_title">Original Author: Kododake</string>
+    <string name="settings_donate_original_description">Fuel the original creator\'s motivation to keep improving the base project.</string>
     <string name="settings_donate_tab_github">GitHub Sponsors</string>
     <string name="settings_donate_tab_bitcoin">Bitcoin</string>
+    <string name="settings_donate_tab_coffee">Buy Me a Coffee</string>
     <string name="settings_donate_open_github_sponsors">Open Sponsors Page</string>
+    <string name="settings_donate_open_coffee">Buy Me a Coffee</string>
     <string name="donate_bitcoin_address">Bitcoin Address</string>
     <string name="donate_bitcoin_address_value">bc1qnpqpfq7e8pjtlqj7aa6x2y2c9ctnpts5u9lx7v</string>
     <string name="donate_copy">Copy</string>
@@ -214,4 +220,11 @@
     <string name="media_notification_channel_name">Media playback</string>
     <string name="media_notification_channel_description">Controls media playback in web pages</string>
     <string name="media_notification_content_text">Playing media in WebView</string>
+
+    <string name="video_control_zoom_in">Zoom In</string>
+    <string name="video_control_zoom_out">Zoom Out</string>
+    <string name="video_control_reset">Reset Video</string>
+    <string name="video_control_immersive">Immersive Mode</string>
+    <string name="video_assistant_play">Maximize Video</string>
+    <string name="tap_video_to_fullscreen">Tap on the video to enter fullscreen</string>
 </resources>

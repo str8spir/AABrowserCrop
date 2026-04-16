@@ -909,14 +909,51 @@ object SettingsViews {
         uaCard.addView(uaInner)
         container.addView(uaCard)
 
+        val openUrl = { url: String ->
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+            } catch (_: Exception) {
+                Toast.makeText(context, R.string.error_generic_message, Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        val maintainerDonateCard = createStyledCard()
+        val maintainerDonateInner = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+        }
+        maintainerDonateInner.addView(createSectionTitle(context.getString(R.string.settings_donate_user_title), R.drawable.volunteer_activism_24px, bottomPaddingDp = 4))
+        maintainerDonateInner.addView(TextView(context).apply {
+            text = context.getString(R.string.settings_donate_description)
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
+            setTextColor(onSurfaceColor)
+            setPadding(0, dp(4), 0, 0)
+        })
+
+        val coffeeUrl = "https://buymeacoffee.com/str8spir"
+        val maintainerCoffeeButton = createListButton(
+            View.generateViewId(),
+            context.getString(R.string.settings_donate_open_coffee),
+            R.drawable.favorite_24px
+        ).apply {
+            val coffeeColor = ColorStateList.valueOf(Color.parseColor("#FFDD00"))
+            iconTint = coffeeColor
+            setOnClickListener { openUrl(coffeeUrl) }
+        }
+        maintainerDonateInner.addView(maintainerCoffeeButton)
+        maintainerDonateCard.addView(maintainerDonateInner)
+        container.addView(maintainerDonateCard)
+
         val donateCard = createStyledCard()
         val donateInner = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(16), dp(16), dp(16))
         }
-        donateInner.addView(createSectionTitle(context.getString(R.string.settings_donate), R.drawable.volunteer_activism_24px, bottomPaddingDp = 4))
+        donateInner.addView(createSectionTitle(context.getString(R.string.settings_donate_original_title), R.drawable.favorite_24px, bottomPaddingDp = 4))
         donateInner.addView(TextView(context).apply {
-            text = context.getString(R.string.settings_donate_description)
+            text = context.getString(R.string.settings_donate_original_description)
             setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
             setTextColor(onSurfaceColor)
             setPadding(0, dp(4), 0, 0)
@@ -1122,16 +1159,6 @@ object SettingsViews {
 
         clearBackgroundButton.setOnClickListener {
             callbacks.onClearStartPageBackground?.invoke()
-        }
-
-        fun openUrl(url: String) {
-            try {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(intent)
-            } catch (_: Exception) {
-                Toast.makeText(context, R.string.error_generic_message, Toast.LENGTH_SHORT).show()
-            }
         }
 
         viewKododakeButton.setOnClickListener { openUrl("https://github.com/kododake") }

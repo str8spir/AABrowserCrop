@@ -20,6 +20,7 @@ import android.os.Looper
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.ContextThemeWrapper
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
@@ -31,6 +32,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Toast
+import com.kododake.aabrowser.view.InterceptTouchFrameLayout
 import com.kododake.aabrowser.analytics.UmamiTracker
 import androidx.activity.addCallback
 import androidx.activity.result.contract.ActivityResultContracts
@@ -87,13 +89,82 @@ class MainActivity : AppCompatActivity() {
         if (!::binding.isInitialized) return@Runnable
         if (isShowingStartPage) return@Runnable
         if (BrowserPreferences.isQuickActionButtonAlwaysVisible(this)) return@Runnable
-        binding.menuFab.hide()
+        binding.quickActionsContainer.animate()
+            .alpha(0f)
+            .setDuration(300)
+            .withLayer()
+            .withEndAction {
+                binding.quickActionsContainer.visibility = View.GONE
+            }
+            .start()
     }
+
+    private val autoHideFsControls = Runnable {
+        if (customView != null) {
+            binding.fullscreenVideoControls.animate()
+                .alpha(0f)
+                .translationY(100f)
+                .setDuration(500)
+                .withEndAction {
+                    binding.fullscreenVideoControls.visibility = View.GONE
+                }
+                .start()
+
+            if (!BrowserPreferences.isQuickActionButtonAlwaysVisible(this)) {
+                binding.quickActionsContainer.animate()
+                    .alpha(0f)
+                    .translationX(-100f)
+                    .setDuration(500)
+                    .withEndAction {
+                        binding.quickActionsContainer.visibility = View.GONE
+                    }
+                    .start()
+            }
+        }
+    }
+
+    private fun resetFsControlsTimer() {
+        handler.removeCallbacks(autoHideFsControls)
+        
+        if (binding.fullscreenVideoControls.visibility != View.VISIBLE) {
+            binding.fullscreenVideoControls.alpha = 0f
+            binding.fullscreenVideoControls.translationY = 100f
+            binding.fullscreenVideoControls.visibility = View.VISIBLE
+        }
+        binding.fullscreenVideoControls.animate()
+            .alpha(1f)
+            .translationY(0f)
+            .setDuration(300)
+            .start()
+
+        if (binding.quickActionsContainer.visibility != View.VISIBLE) {
+            binding.quickActionsContainer.alpha = 0f
+            binding.quickActionsContainer.translationX = -100f
+            binding.quickActionsContainer.visibility = View.VISIBLE
+        }
+        binding.quickActionsContainer.animate()
+            .alpha(1f)
+            .translationX(0f)
+            .setDuration(300)
+            .start()
+
+        handler.postDelayed(autoHideFsControls, 5000L)
+    }
+
     private val showMenuFabRunnable = Runnable {
         if (!::binding.isInitialized) return@Runnable
-        if (isInFullscreen() || binding.menuOverlay.isVisible) return@Runnable
-        binding.menuFab.show()
+        if (binding.menuOverlay.isVisible) return@Runnable
+        if (binding.quickActionsContainer.visibility != View.VISIBLE) {
+            binding.quickActionsContainer.alpha = 0f
+            binding.quickActionsContainer.visibility = View.VISIBLE
+        }
+        binding.quickActionsContainer.animate()
+            .alpha(1f)
+            .setDuration(150)
+            .withLayer()
+            .start()
         if (!isShowingStartPage && !BrowserPreferences.isQuickActionButtonAlwaysVisible(this)) {
+            handler.removeCallbacks(autoHideMenuFab)
             handler.postDelayed(autoHideMenuFab, MENU_BUTTON_AUTO_HIDE_DELAY_MS)
         }
     }
@@ -121,6 +192,10 @@ class MainActivity : AppCompatActivity() {
     private var isShowingStartPage: Boolean = false
     private var isSyncingAddressFields: Boolean = false
     private var isStartPagePhotoOnlyMode: Boolean = false
+    private var currentVideoZoomScale: Float = 1.0f
+    private var isVideoCropActive: Boolean = false
+    private var detectedVideoWidth: Int = 0
+    private var detectedVideoHeight: Int = 0
     private var loadedStartPageBackgroundUri: String? = null
     private var loadedStartPageBackgroundBitmap: Bitmap? = null
     private var cachedStartPageGradientSignature: Int = 0
@@ -177,6 +252,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
+        handler.removeCallbacks(autoHideFsControls)
         exitFullscreen()
         webView?.onPause()
         super.onPause()
@@ -185,6 +261,7 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         handler.removeCallbacks(autoHideMenuFab)
         handler.removeCallbacks(showMenuFabRunnable)
+        handler.removeCallbacks(autoHideFsControls)
         exitFullscreen()
         loadedStartPageBackgroundBitmap?.recycle()
         loadedStartPageBackgroundBitmap = null
@@ -644,6 +721,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        tabView.addJavascriptInterface(VideoAssistantInterface(), "VideoAssistant")
         tabView.addJavascriptInterface(object {
             @android.webkit.JavascriptInterface
             fun openExternal(url: String) {
@@ -691,6 +769,11 @@ class MainActivity : AppCompatActivity() {
                     if (!isShowingStartPage) {
                         updateConnectionSecurityIcon(url)
                     }
+                    if (currentVideoZoomScale != 1.0f) {
+                        resetNativeVideoScale()
+                    }
+                    detectedVideoWidth = 0
+                    detectedVideoHeight = 0
                     refreshStartPage()
                     refreshTabs()
                 }
@@ -748,7 +831,7 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread { enterFullscreen(view, callback) }
             },
             onExitFullscreen = {
-                runOnUiThread { exitFullscreen(true) }
+                runOnUiThread { exitFullscreen(false) }
             },
             onPermissionRequest = { request ->
                 runOnUiThread { handleWebPermissionRequest(request) }
@@ -1027,6 +1110,31 @@ class MainActivity : AppCompatActivity() {
         binding.menuScroll.visibility = View.VISIBLE
     }
 
+    inner class VideoAssistantInterface {
+        @android.webkit.JavascriptInterface
+        fun onVideoDetected(found: Boolean) {
+            handler.post {
+                binding.videoAssistantFab.visibility = View.GONE
+            }
+        }
+
+        @android.webkit.JavascriptInterface
+        fun onVideoDimensions(width: Int, height: Int) {
+            handler.post {
+                if (width > 0 && height > 0) {
+                    detectedVideoWidth = width
+                    detectedVideoHeight = height
+                    customView?.let { updateVideoCrop(it) }
+                }
+            }
+        }
+
+        @android.webkit.JavascriptInterface
+        fun onVideoProgress(currentTime: Double, duration: Double) {
+            // No longer using internal progress indicator
+        }
+    }
+
     private fun setupUi() {
         val intentUrl = extractBrowsableUrl(intent)
         val homePageUrl = BrowserPreferences.getHomePageUrl(this)
@@ -1035,7 +1143,7 @@ class MainActivity : AppCompatActivity() {
         val resumeLastPageOnLaunch = BrowserPreferences.shouldResumeLastPageOnLaunch(this)
         currentUserAgentProfile = BrowserPreferences.getUserAgentProfile(this)
 
-        binding.menuFab.hide()
+        binding.quickActionsContainer.visibility = View.GONE
         initializeTabs(
             intentUrl = intentUrl,
             homePageUrl = homePageUrl,
@@ -1065,10 +1173,12 @@ class MainActivity : AppCompatActivity() {
         syncAddressFieldsFrom(binding.addressEdit)
         updateAddressClearButtons()
 
-        binding.buttonReload.setOnClickListener {
-            webView?.reload()
-            hideMenuOverlay()
+        binding.videoAssistantFab.setOnClickListener {
+            webView?.evaluateJavascript("window.prepareForFullscreen && window.prepareForFullscreen()", null)
+            Toast.makeText(this, R.string.tap_video_to_fullscreen, Toast.LENGTH_SHORT).show()
         }
+
+        setupFullscreenVideoControls()
 
         binding.buttonBack.setOnClickListener {
             webView?.let { if (it.canGoBack()) it.goBack() }
@@ -1155,46 +1265,63 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        fun applyStartPageDonateTab(isGithub: Boolean) {
-            if (isGithub) {
-                binding.startPageDonateAddress.text = START_PAGE_SPONSOR_URL
-                val qrBitmap = generateQrCode(START_PAGE_SPONSOR_URL)
-                if (qrBitmap != null) {
-                    binding.startPageDonateQrImage.setImageBitmap(qrBitmap)
-                } else {
-                    binding.startPageDonateQrImage.setImageResource(R.drawable.ic_github)
+        fun applyStartPageDonateTab(tabId: Int) {
+            when (tabId) {
+                R.id.startPageDonateTabCoffee -> {
+                    binding.startPageDonateAddress.text = START_PAGE_COFFEE_URL
+                    val qrBitmap = generateQrCode(START_PAGE_COFFEE_URL)
+                    if (qrBitmap != null) {
+                        binding.startPageDonateQrImage.setImageBitmap(qrBitmap)
+                    }
+                    binding.startPageDonateActionButton.text = getString(R.string.settings_donate_open_coffee)
+                    binding.startPageDonateActionButton.setIconResource(R.drawable.favorite_24px)
+                    binding.startPageDonateActionButton.iconTint = ColorStateList.valueOf(Color.parseColor("#FFDD00"))
+                    binding.startPageDonateActionButton.setOnClickListener {
+                        openUriExternally(Uri.parse(START_PAGE_COFFEE_URL))
+                    }
                 }
-                binding.startPageDonateActionButton.text = getString(R.string.settings_donate_open_github_sponsors)
-                binding.startPageDonateActionButton.setIconResource(R.drawable.favorite_24px)
-                binding.startPageDonateActionButton.iconTint = ColorStateList.valueOf(Color.parseColor("#EC407A"))
-                binding.startPageDonateActionButton.setOnClickListener {
-                    openUriExternally(Uri.parse(START_PAGE_SPONSOR_URL))
+                R.id.startPageDonateTabGithub -> {
+                    binding.startPageDonateAddress.text = START_PAGE_SPONSOR_URL
+                    val qrBitmap = generateQrCode(START_PAGE_SPONSOR_URL)
+                    if (qrBitmap != null) {
+                        binding.startPageDonateQrImage.setImageBitmap(qrBitmap)
+                    } else {
+                        binding.startPageDonateQrImage.setImageResource(R.drawable.ic_github)
+                    }
+                    binding.startPageDonateActionButton.text = getString(R.string.settings_donate_open_github_sponsors)
+                    binding.startPageDonateActionButton.setIconResource(R.drawable.favorite_24px)
+                    binding.startPageDonateActionButton.iconTint = ColorStateList.valueOf(Color.parseColor("#EC407A"))
+                    binding.startPageDonateActionButton.setOnClickListener {
+                        openUriExternally(Uri.parse(START_PAGE_SPONSOR_URL))
+                    }
                 }
-            } else {
-                binding.startPageDonateAddress.text = getString(R.string.donate_bitcoin_address_value)
-                binding.startPageDonateQrImage.setImageResource(R.drawable.bitcoin_qr)
-                binding.startPageDonateActionButton.text = getString(R.string.donate_copy)
-                binding.startPageDonateActionButton.setIconResource(R.drawable.content_copy_24px)
-                binding.startPageDonateActionButton.iconTint = ColorStateList.valueOf(
-                    resolveThemeColor(com.google.android.material.R.attr.colorOnSecondaryContainer)
-                )
-                binding.startPageDonateActionButton.setOnClickListener {
-                    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Bitcoin Address", binding.startPageDonateAddress.text.toString()))
-                    Toast.makeText(this, R.string.donate_copied, Toast.LENGTH_SHORT).show()
+                R.id.startPageDonateTabBitcoin -> {
+                    binding.startPageDonateAddress.text = getString(R.string.donate_bitcoin_address_value)
+                    binding.startPageDonateQrImage.setImageResource(R.drawable.bitcoin_qr)
+                    binding.startPageDonateActionButton.text = getString(R.string.donate_copy)
+                    binding.startPageDonateActionButton.setIconResource(R.drawable.content_copy_24px)
+                    binding.startPageDonateActionButton.iconTint = ColorStateList.valueOf(
+                        resolveThemeColor(com.google.android.material.R.attr.colorOnSecondaryContainer)
+                    )
+                    binding.startPageDonateActionButton.setOnClickListener {
+                        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Bitcoin Address", binding.startPageDonateAddress.text.toString()))
+                        Toast.makeText(this, R.string.donate_copied, Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }
 
-        binding.startPageDonateTabGroup.check(binding.startPageDonateTabGithub.id)
-        applyStartPageDonateTab(isGithub = true)
+        binding.startPageDonateTabGroup.check(R.id.startPageDonateTabCoffee)
+        applyStartPageDonateTab(R.id.startPageDonateTabCoffee)
         binding.startPageDonateTabGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (!isChecked) return@addOnButtonCheckedListener
-            applyStartPageDonateTab(isGithub = checkedId == binding.startPageDonateTabGithub.id)
+            applyStartPageDonateTab(checkedId)
         }
 
         binding.persistentButtonMenu.setOnClickListener { showMenuOverlay() }
         binding.menuFab.setOnClickListener { handleQuickActionButtonPressed() }
+
         binding.buttonClose.setOnClickListener { hideMenuOverlay() }
         binding.menuOverlayScrim.setOnClickListener { hideMenuOverlay() }
         applyMenuHeaderColors()
@@ -1293,9 +1420,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleQuickActionButtonPressed() {
-        when (BrowserPreferences.getQuickActionButtonMode(this)) {
-            QuickActionButtonMode.MENU -> showMenuOverlay()
-            QuickActionButtonMode.ADDRESS_BAR -> showMenuOverlay(focusAddressBar = true)
+        val mode = BrowserPreferences.getQuickActionButtonMode(this)
+        if (mode == QuickActionButtonMode.ADDRESS_BAR) {
+            focusMenuAddressBar()
+            showMenuOverlay()
+        } else {
+            showMenuOverlay()
         }
     }
 
@@ -1328,31 +1458,24 @@ class MainActivity : AppCompatActivity() {
     private fun applyQuickActionButtonPreferences() {
         if (!::binding.isInitialized) return
 
-        val mode = BrowserPreferences.getQuickActionButtonMode(this)
-        binding.menuFab.setImageResource(
-            if (mode == QuickActionButtonMode.ADDRESS_BAR) {
-                R.drawable.search_24px
-            } else {
-                android.R.drawable.ic_menu_more
-            }
-        )
-        binding.menuFab.contentDescription = getString(
-            if (mode == QuickActionButtonMode.ADDRESS_BAR) {
-                R.string.menu_open_address_bar
-            } else {
-                R.string.menu_open_description
-            }
-        )
-
         val density = resources.displayMetrics.density
         val margin = (16 * density).toInt()
         val position = BrowserPreferences.getQuickActionButtonPosition(this)
-        val layoutParams = binding.menuFab.layoutParams as CoordinatorLayout.LayoutParams
+        val layoutParams = binding.quickActionsContainer.layoutParams as CoordinatorLayout.LayoutParams
         layoutParams.gravity = when (position) {
             QuickActionButtonPosition.BOTTOM_LEFT -> android.view.Gravity.BOTTOM or android.view.Gravity.START
             QuickActionButtonPosition.BOTTOM_RIGHT -> android.view.Gravity.BOTTOM or android.view.Gravity.END
             QuickActionButtonPosition.TOP_LEFT -> android.view.Gravity.TOP or android.view.Gravity.START
             QuickActionButtonPosition.TOP_RIGHT -> android.view.Gravity.TOP or android.view.Gravity.END
+        }
+
+        // Adjust button order based on side
+        val isRight = position == QuickActionButtonPosition.BOTTOM_RIGHT || position == QuickActionButtonPosition.TOP_RIGHT
+        binding.quickActionsContainer.removeView(binding.menuFab)
+        if (isRight) {
+            binding.quickActionsContainer.addView(binding.menuFab)
+        } else {
+            binding.quickActionsContainer.addView(binding.menuFab, 0)
         }
 
         val topOffset = if (position == QuickActionButtonPosition.TOP_LEFT || position == QuickActionButtonPosition.TOP_RIGHT) {
@@ -1361,15 +1484,20 @@ class MainActivity : AppCompatActivity() {
             margin
         }
         layoutParams.setMargins(margin, topOffset, margin, margin)
-        binding.menuFab.layoutParams = layoutParams
+        binding.quickActionsContainer.layoutParams = layoutParams
 
         if (isShowingStartPage || BrowserPreferences.isQuickActionButtonAlwaysVisible(this)) {
             handler.removeCallbacks(showMenuFabRunnable)
             handler.removeCallbacks(autoHideMenuFab)
-            if (!isInFullscreen() && !binding.menuOverlay.isVisible) {
-                binding.menuFab.show()
+            if (!binding.menuOverlay.isVisible) {
+                binding.quickActionsContainer.visibility = View.VISIBLE
+                binding.quickActionsContainer.alpha = 1f
             }
+        } else if (binding.quickActionsContainer.visibility == View.VISIBLE && !handler.hasCallbacks(autoHideMenuFab)) {
+            handler.postDelayed(autoHideMenuFab, MENU_BUTTON_AUTO_HIDE_DELAY_MS)
         }
+
+        updateQuickActionsIcon()
     }
 
     private fun focusMenuAddressBar() {
@@ -1552,8 +1680,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateProgress(progress: Int) {
-        binding.progressIndicator.visibility = if (progress in 1..99) View.VISIBLE else View.GONE
-        if (progress in 1..99) binding.progressIndicator.setProgressCompat(progress, true)
+        // No longer using internal progress indicator
     }
 
     private fun showMenuOverlay(focusAddressBar: Boolean = false) {
@@ -1575,7 +1702,7 @@ class MainActivity : AppCompatActivity() {
         }
         handler.removeCallbacks(showMenuFabRunnable)
         handler.removeCallbacks(autoHideMenuFab)
-        binding.menuFab.hide()
+        binding.quickActionsContainer.visibility = View.GONE
         refreshBookmarks()
         refreshTabs()
         refreshStartPage()
@@ -1603,12 +1730,14 @@ class MainActivity : AppCompatActivity() {
     private fun showMenuButtonTemporarily() {
         handler.removeCallbacks(showMenuFabRunnable)
         handler.removeCallbacks(autoHideMenuFab)
-        if (isInFullscreen() || binding.menuOverlay.isVisible) return
+        if (binding.menuOverlay.isVisible) return
         if (isShowingStartPage || BrowserPreferences.isQuickActionButtonAlwaysVisible(this)) {
-            binding.menuFab.show()
+            binding.quickActionsContainer.visibility = View.VISIBLE
+            binding.quickActionsContainer.alpha = 1f
             return
         }
-        handler.postDelayed(showMenuFabRunnable, MENU_BUTTON_SHOW_DELAY_MS)
+        // Removed delay for better responsiveness on user interaction
+        showMenuFabRunnable.run()
     }
 
     private fun openUriExternally(uri: Uri) {
@@ -1653,31 +1782,172 @@ class MainActivity : AppCompatActivity() {
         customView = view
         customViewCallback = callback
         if (binding.menuOverlay.isVisible) hideMenuOverlay()
-        binding.menuFab.hide()
         binding.persistentAddressBarCard.visibility = View.GONE
         webView?.visibility = View.INVISIBLE
-        binding.fullscreenContainer.apply {
-            visibility = View.VISIBLE
-            removeAllViews()
-            addView(view, FrameLayout.LayoutParams(-1, -1))
-            bringToFront()
+        
+        binding.fullscreenContainer.visibility = View.VISIBLE
+        binding.fullscreenContainer.removeAllViews()
+
+        // Reset state for new video
+        isVideoCropActive = false
+        currentVideoZoomScale = 1.0f
+        
+        val wrapper = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            addView(view, FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.CENTER
+            ))
         }
+        binding.fullscreenContainer.addView(wrapper)
+        binding.fullscreenContainer.bringToFront()
+        
+        (binding.fullscreenContainer as? InterceptTouchFrameLayout)?.onInterceptTouchListener = { event ->
+            resetFsControlsTimer()
+        }
+
+        binding.fullscreenVideoControls.visibility = View.VISIBLE
+        binding.fullscreenVideoControls.bringToFront()
+        binding.quickActionsContainer.bringToFront()
+        binding.videoAssistantFab.visibility = View.GONE
+
+        // Trigger scale reset and timer once the view is laid out
+        view.post {
+            resetNativeVideoScale()
+            resetFsControlsTimer()
+        }
+        
+        view.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
+            override fun onLayoutChange(v: View?, left: Int, top: Int, right: Int, bottom: Int,
+                                        oldLeft: Int, oldTop: Int, oldRight: Int, oldBottom: Int) {
+                if (customView == view) {
+                    updateVideoCrop(view)
+                }
+            }
+        })
+
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        WindowInsetsControllerCompat(window, binding.fullscreenContainer).hide(WindowInsetsCompat.Type.systemBars())
+        WindowInsetsControllerCompat(window, binding.fullscreenContainer).apply {
+            hide(WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
     }
 
     private fun exitFullscreen(fromWebChrome: Boolean = false) {
+        handler.removeCallbacks(autoHideFsControls)
         if (customView == null) return
-        binding.fullscreenContainer.apply { removeAllViews(); visibility = View.GONE }
+        binding.fullscreenContainer.apply {
+            (this as? InterceptTouchFrameLayout)?.onInterceptTouchListener = null
+            setOnClickListener(null)
+            removeAllViews()
+            visibility = View.GONE
+        }
+        binding.fullscreenVideoControls.visibility = View.GONE
         webView?.visibility = if (isShowingStartPage) View.INVISIBLE else View.VISIBLE
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         WindowInsetsControllerCompat(window, binding.root).show(WindowInsetsCompat.Type.systemBars())
         val callback = customViewCallback
+        customView?.apply {
+            scaleX = 1f
+            scaleY = 1f
+            translationX = 0f
+            translationY = 0f
+        }
         customView = null
         customViewCallback = null
         if (!fromWebChrome) callback?.onCustomViewHidden()
         applyPersistentAddressBarPreference()
         showMenuButtonTemporarily()
+    }
+
+    private fun setupFullscreenVideoControls() {
+        binding.buttonFsZoomIn.setOnClickListener { 
+            applyNativeVideoScale(0.1f) 
+            resetFsControlsTimer()
+        }
+        binding.buttonFsZoomOut.setOnClickListener { 
+            applyNativeVideoScale(-0.1f) 
+            resetFsControlsTimer()
+        }
+        binding.buttonFsReset.setOnClickListener { 
+            resetNativeVideoScale() 
+            resetFsControlsTimer()
+        }
+        binding.buttonFsCrop.setOnClickListener { 
+            toggleNativeVideoCrop() 
+            resetFsControlsTimer()
+        }
+        binding.buttonFsExit.setOnClickListener { 
+            webView?.evaluateJavascript("document.webkitExitFullscreen?.() || document.exitFullscreen?.()", null)
+            exitFullscreen(false)
+        }
+    }
+
+    private fun applyNativeVideoScale(delta: Float) {
+        customView?.let { view ->
+            currentVideoZoomScale *= (1.0f + delta)
+            currentVideoZoomScale = currentVideoZoomScale.coerceIn(0.1f, 5.0f)
+            updateVideoCrop(view)
+        }
+    }
+
+    private fun resetNativeVideoScale() {
+        currentVideoZoomScale = 1.0f
+        isVideoCropActive = false
+        customView?.let { view ->
+            view.translationX = 0f
+            view.translationY = 0f
+            view.scaleX = 1.0f
+            view.scaleY = 1.0f
+            updateVideoCrop(view)
+        } ?: run {
+            binding.buttonFsCrop.setIconResource(R.drawable.crop_free_24px)
+        }
+    }
+
+    private fun toggleNativeVideoCrop() {
+        isVideoCropActive = !isVideoCropActive
+        customView?.let { updateVideoCrop(it) }
+    }
+
+    private fun updateVideoCrop(view: View) {
+        val containerWidth = binding.fullscreenContainer.width.toFloat()
+        val containerHeight = binding.fullscreenContainer.height.toFloat()
+        
+        if (containerWidth <= 0f || containerHeight <= 0f) {
+            return
+        }
+
+        val videoWidth = if (detectedVideoWidth > 0) detectedVideoWidth.toFloat() else view.width.toFloat()
+        val videoHeight = if (detectedVideoHeight > 0) detectedVideoHeight.toFloat() else view.height.toFloat()
+
+        if (videoWidth <= 0f || videoHeight <= 0f) {
+            view.scaleX = currentVideoZoomScale
+            view.scaleY = currentVideoZoomScale
+            return
+        }
+
+        val containerAspect = containerWidth / containerHeight
+        val videoAspect = videoWidth / videoHeight
+
+        val fillScale = if (videoAspect > containerAspect) {
+            // Video is wider than container (height-constrained)
+            containerHeight / (containerWidth / videoAspect)
+        } else {
+            // Video is taller than container (width-constrained)
+            containerWidth / (containerHeight * videoAspect)
+        }
+
+        val baseScale = if (isVideoCropActive) fillScale else 1.0f
+
+        view.scaleX = baseScale * currentVideoZoomScale
+        view.scaleY = baseScale * currentVideoZoomScale
+        
+        binding.buttonFsCrop.setIconResource(if (isVideoCropActive) R.drawable.ic_close else R.drawable.crop_free_24px)
     }
 
     private fun addBookmarkForCurrentPage() {
@@ -2129,7 +2399,7 @@ class MainActivity : AppCompatActivity() {
         if (isStartPagePhotoOnlyMode) {
             handler.removeCallbacks(showMenuFabRunnable)
             handler.removeCallbacks(autoHideMenuFab)
-            binding.menuFab.hide()
+            binding.quickActionsContainer.visibility = View.GONE
         } else if (isShowingStartPage) {
             showMenuButtonTemporarily()
         }
@@ -2540,6 +2810,16 @@ class MainActivity : AppCompatActivity() {
         binding.menuScroll.visibility = View.VISIBLE
     }
 
+    private fun resetAutoHideTimer() {
+        if (!::binding.isInitialized) return
+        if (isShowingStartPage || BrowserPreferences.isQuickActionButtonAlwaysVisible(this)) return
+        handler.removeCallbacks(autoHideMenuFab)
+        binding.quickActionsContainer.animate().cancel()
+        binding.quickActionsContainer.alpha = 1f
+        binding.quickActionsContainer.visibility = View.VISIBLE
+        handler.postDelayed(autoHideMenuFab, MENU_BUTTON_AUTO_HIDE_DELAY_MS)
+    }
+
     private fun generateQrCode(content: String): Bitmap? {
         return try {
             val bitMatrix = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, 512, 512)
@@ -2549,12 +2829,22 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) { null }
     }
 
+    private fun updateQuickActionsIcon() {
+        if (!::binding.isInitialized) return
+        val currentMode = BrowserPreferences.getQuickActionButtonMode(this)
+        if (currentMode == QuickActionButtonMode.ADDRESS_BAR) {
+            binding.menuFab.setIconResource(R.drawable.search_24px)
+        } else {
+            binding.menuFab.setIconResource(R.drawable.tab_group_24px)
+        }
+    }
+
     companion object {
         private const val MENU_BUTTON_AUTO_HIDE_DELAY_MS = 3000L
-        private const val MENU_BUTTON_SHOW_DELAY_MS = 500L
         private const val ERROR_PAGE_ASSET_PREFIX = "file:///android_asset/error.html"
         private const val GITHUB_REPO_URL = "https://github.com/kododake/AABrowser"
         private const val START_PAGE_SPONSOR_URL = "https://github.com/sponsors/kododake"
+        private const val START_PAGE_COFFEE_URL = "https://buymeacoffee.com/str8spir"
         private const val KEEP_ANDROID_OPEN_URL = "https://keepandroidopen.org"
         private const val FREE_DROID_WARN_SOLUTIONS_URL = "https://github.com/woheller69/FreeDroidWarn?tab=readme-ov-file#solutions"
         private const val FREE_DROID_WARN_VERSION_KEY = "versionCodeWarn"

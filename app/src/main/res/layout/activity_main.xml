@@ -3,21 +3,17 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fitsSystemWindows="true">
-
-    <com.google.android.material.progressindicator.LinearProgressIndicator
-        android:id="@+id/progressIndicator"
-        android:layout_width="match_parent"
-        android:layout_height="3dp"
-        android:layout_gravity="top"
-        android:visibility="gone"
-        app:trackThickness="3dp"
-        app:indicatorColor="?attr/colorPrimary" />
+    android:fitsSystemWindows="true"
+    android:clipChildren="false"
+    android:clipToPadding="false">
 
     <FrameLayout
         android:id="@+id/contentRoot"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:clipToPadding="false">
+        android:clipToPadding="false">
 
         <FrameLayout
             android:id="@+id/webViewContainer"
@@ -219,6 +215,14 @@
                                 app:selectionRequired="true">
 
                                 <com.google.android.material.button.MaterialButton
+                                    android:id="@+id/startPageDonateTabCoffee"
+                                    style="@style/Widget.Material3.Button.OutlinedButton"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1.2"
+                                    android:text="@string/settings_donate_tab_coffee" />
+
+                                <com.google.android.material.button.MaterialButton
                                     android:id="@+id/startPageDonateTabGithub"
                                     style="@style/Widget.Material3.Button.OutlinedButton"
                                     android:layout_width="0dp"
@@ -284,11 +288,13 @@
             </androidx.core.widget.NestedScrollView>
         </FrameLayout>
 
-        <FrameLayout
+        <com.kododake.aabrowser.view.InterceptTouchFrameLayout
             android:id="@+id/fullscreenContainer"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:visibility="gone" />
+            android:visibility="gone"
+            android:clipChildren="false"
+            android:clipToPadding="false" />
 
     </FrameLayout>
 
@@ -1442,16 +1448,114 @@
         </com.google.android.material.card.MaterialCardView>
     </FrameLayout>
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/menuFab"
+    <LinearLayout
+        android:id="@+id/quickActionsContainer"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|start"
         android:layout_margin="16dp"
-        android:contentDescription="@string/menu_open_description"
-        app:srcCompat="@android:drawable/ic_menu_more"
-        app:tint="?attr/colorOnPrimary"
-        app:backgroundTint="?attr/colorPrimary"
-        app:elevation="6dp" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:clipChildren="false"
+        android:clipToPadding="false">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/menuFab"
+            style="@style/Widget.Material3.Button.IconButton.Filled"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:contentDescription="@string/menu_open_description"
+            app:icon="@android:drawable/ic_menu_more"
+            app:iconSize="24dp"
+            app:iconTint="?attr/colorOnPrimary"
+            app:backgroundTint="?attr/colorPrimary"
+            app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.Material3.Button.Circular" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/videoAssistantFab"
+            style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginStart="8dp"
+            android:contentDescription="@string/video_assistant_play"
+            android:visibility="gone"
+            app:icon="@android:drawable/ic_media_play"
+            app:iconSize="24dp"
+            app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.Material3.Button.Circular" />
+
+    </LinearLayout>
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/fullscreenVideoControls"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="24dp"
+        android:visibility="gone"
+        app:cardCornerRadius="28dp"
+        app:cardElevation="8dp"
+        app:cardBackgroundColor="?attr/colorSurfaceContainerHigh"
+        app:strokeWidth="0dp">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="4dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/buttonFsZoomOut"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/video_control_zoom_out"
+                app:icon="@drawable/ic_zoom_out"
+                app:iconSize="24dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/buttonFsZoomIn"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/video_control_zoom_in"
+                app:icon="@drawable/ic_zoom_in"
+                app:iconSize="24dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/buttonFsReset"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/video_control_reset"
+                app:icon="@drawable/refresh_24px"
+                app:iconSize="24dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/buttonFsCrop"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/video_control_immersive"
+                app:icon="@drawable/crop_free_24px"
+                app:iconSize="24dp" />
+
+            <View
+                android:layout_width="1dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center_vertical"
+                android:layout_marginHorizontal="4dp"
+                android:background="?attr/colorOutlineVariant" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/buttonFsExit"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="@string/menu_close"
+                app:icon="@drawable/ic_close"
+                app:iconSize="24dp"
+                app:iconTint="?attr/colorError" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
