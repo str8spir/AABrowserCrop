@@ -23,6 +23,11 @@ Designed specifically for **32:9 aspect ratios**, this UI element only appears w
 * **Fill-to-Crop:** Utilize the full width of your dashboard, eliminating pillarboxing.
 * **Granular Control:** Precise +/- adjustments to find the sweet spot between content visibility and screen coverage.
 * **Overflow Lock:** Automatically locks document scrolling when zooming to keep the video perfectly centered.
+  
+<img width="1024" height="498" alt="image" src="https://github.com/user-attachments/assets/9bfa5d5b-4fb3-4c05-8be4-1d08baab6710" />
+<img width="1024" height="588" alt="image" src="https://github.com/user-attachments/assets/cb4cb8b7-6657-462e-b32a-5aba711fcaba" />
+<img width="1024" height="520" alt="image" src="https://github.com/user-attachments/assets/1879c6c0-72b8-4062-8f9e-e5f4ce236062" />
+
 
 ---
 
